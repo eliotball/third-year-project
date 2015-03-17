@@ -1,6 +1,7 @@
 import sys
 import os
 import time
+import copy
 
 class Formula:
     
@@ -20,6 +21,13 @@ class Formula:
             else:
                 parts = [int(part) for part in line.strip().split(" ") if part != ""]
                 self.add_clause(parts[:-1])
+
+    def clone(self):
+        f = Formula("")
+        f.next_fresh = self.next_fresh
+        f.literal_locations = copy.deepcopy(self.literal_locations)
+        f.clauses = copy.deepcopy(self.clauses)
+        return f
 
     def add_clause(self, literals):
         self.clauses += [literals]
@@ -107,32 +115,33 @@ class Formula:
 #
 #f = Formula(test_str)
 
-formula_filename = sys.argv[1]
-subclause_filename = sys.argv[2]
-output_filename = sys.argv[3]
+if __name__ == "__main__":
+    formula_filename = sys.argv[1]
+    subclause_filename = sys.argv[2]
+    output_filename = sys.argv[3]
 
-start_time = time.time()
-with open(formula_filename) as formula_file:
-    formula = Formula(formula_file.read())
-print "Time to open formula: ", time.time() - start_time
+    start_time = time.time()
+    with open(formula_filename) as formula_file:
+        formula = Formula(formula_file.read())
+    print "Time to open formula: ", time.time() - start_time
 
-start_time = time.time()
-try:
-    with open(subclause_filename) as subclause_file:
-        subclause_lines = subclause_file.readlines()
-except:
-    subclause_lines = []
-print "Time to open subclauses: ", time.time() - start_time
+    start_time = time.time()
+    try:
+        with open(subclause_filename) as subclause_file:
+            subclause_lines = subclause_file.readlines()
+    except:
+        subclause_lines = []
+    print "Time to open subclauses: ", time.time() - start_time
 
-print "Variables before substitutions: ", formula.next_fresh
+    print "Variables before substitutions: ", formula.next_fresh
 
-start_time = time.time()
-for subclause_line in subclause_lines:
-   subclause = subclause_line.split(" ")[:-1]
-   formula.extend([int(l) for l in subclause])
-print "Time to make replacements: ", time.time() - start_time
+    start_time = time.time()
+    for subclause_line in subclause_lines:
+       subclause = subclause_line.split(" ")[:-1]
+       formula.extend([int(l) for l in subclause])
+    print "Time to make replacements: ", time.time() - start_time
 
-print "Variables after substitutions: ", formula.next_fresh
+    print "Variables after substitutions: ", formula.next_fresh
 
-with open(output_filename, "w") as output_file:
-    output_file.write(formula.to_cnf_file())
+    with open(output_filename, "w") as output_file:
+        output_file.write(formula.to_cnf_file())

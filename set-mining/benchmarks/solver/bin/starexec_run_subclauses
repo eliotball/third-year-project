@@ -1,6 +1,0 @@
-#!/bin/sh
-
-cat "$1" | sed 's/ 0$//g' | tail -n +2 > clauses.tmp
-./apriori -m2 -n3 -s1 clauses.tmp subclauses.tmp
-python replace.py $1 subclauses.tmp > "$1-replaced.cnf"
-./minisat "$1-replaced.cnf"
