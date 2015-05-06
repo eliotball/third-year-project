@@ -1,0 +1,115 @@
+\documentclass[11pt]{article}
+\usepackage[parfill]{parskip}
+\usepackage{lmodern}
+
+\begin{document}
+
+\title{Exploring Strategies for Performing Extended Resolution as a Preprocessing Step for \textsc{sat}-Solving}
+\author{Eliot Ball}
+
+\maketitle
+
+\section*{Summary}
+
+The summary.
+
+\tableofcontents
+
+\section{Introduction}
+
+\begin{itemize}
+  \item Motivation in software verification
+  \item \textsc{sat}-solver state of the art
+\end{itemize}
+
+In a world increasingly driven by machines and other automated systems, bugs and mistakes by the creators of these machines are expensive and sometimes dangerous. In 1994, Intel was pressured into replacing a huge batch of its Pentium processors when it was discovered that the floating point unit within them was faulty, often returning inaccurate results. The recall cost Intel \$475 million. This type of mistake is often a huge problem for the parties involved, and it is easy to imagine truly disastrous outcomes if a mistake is made in the software for a missile guidance system, or the control systems for a car.
+
+This raises the question of how to be sure that a system is correct -- have we implemented what we intended to implement? Testing a system by trying out all of the different types of situations we think it can be in can only go so far. What if we fail to forsee some of the situations? Ideally, we would be able to prove beyond doubt that the system doesn't fail.
+
+Bounded Model Checking refers ??? to the approach of encoding a system as a propositional formula that can be thought of as expressing the claim ``There is a counterexample, proving this system flawed, of length at most $k$'', for some given $k$, and then checking whether this formula is satisfiable (``\textsc{sat}'') using a \textsc{sat}-solver. If the formula is \textsc{sat}, then there is a counterexample of the desired length, which may be obtained by inspecting the values of the variables in satisfying assignment. If the formula is not satisfiable (it is ``\textsc{unsat}''), then we can be sure that there is not a counterexample of the desired length. The smallest possible $k$ guaranteeing that the system is completely correct (that there is no counterexample of any length) is called the ``completeness threshold''. In general, finding the completeness threshold is as hard as actually verifying the system, but many errors are shallow, and may be found with a low value of $k$, so using even a fairly small value can increase one's confidence in a system, even if one can still not be \emph{completely sure} that the system is correct.
+
+Modern \textsc{sat}-solvers operate on a machine-readable representation of formulas in conjunctive normal form (CNF). A CNF formula is a conjunction of clauses, where each clause is a disjunction of literals:
+$$(l_1 \vee l_2 \vee \cdots \vee l_j) \wedge (l_{j+1} \vee l_{j+2} \vee \cdots \vee l_k) \wedge \cdots \wedge (l_{m+1} \vee l_{m+2} \vee \cdots \vee l_n)$$
+Each literal is either a variable or its negation.
+
+For every propositional formula, there is an equivalent CNF formula, which can be found by repeated application of DeMorgan's laws, and the laws about distributivity and double negatives. Therefore \textsc{sat}-solvers can effectively operate on all propositional formulas.
+
+The most efficient modern \textsc{sat}-solvers operate according to versions of the Davis-Putnam-Logemann-Loveland (DPLL) algorithm. The basis of this algorithm is essentially a depth-first search with backtracking of the whole space of partial assignments, looking for a full assignment that satisfies the formula. In the worst case, this type of exhaustive search would take $O(2^n)$ time to complete for a formula of $n$ variables. \textsc{sat}-solvers can achieve much better performance in practice through the use of a number of heuristics. The DPLL algorithm introduced ``unit propagation'', which is the immediate assignment of the required value to any variables found on their own in a clause, and ``pure literal elimination'', which is the immediate assignment to any variable which is only found in one polarity in the whole formula (thereby making every clause containing that variable true). The latest \textsc{sat}-solvers make heavy use of further optimisations such as faster data structures for the backtracking algorithm, better strategies for picking which variable to set at each step, and more advanced strategies for backtracking when a conflict is found. In particular, ``conflict driven clause learning'' (CDCL) aims to infer a clause from a conflict which encapsulates in some sense the `reason' for the conflict, and causes the backtracking algorithm to fail more quickly on paths that would lead to failure for the same reason.
+
+\section{Encodings and pre-processing}
+
+\begin{itemize}
+  \item Problem of picking an encoding
+  \item Extended resolution
+  \item Prior research
+\end{itemize}
+
+For a given proposition about a system, there are many possible ways to encode that proposition in the CNF format accepted by the \textsc{sat}-solver. For example, the \textsc{sat}-solver may behave differently for different orderings of the literals and clauses in a formula. Therefore, even though $(l_0 \vee l_1) \wedge l_2 = (l_1 \vee l_0) \wedge l_2 = l_2 \wedge (l_0 \vee l_1)$, the \textsc{sat}-solver may arrive at the solution to each of these formulas via a different sequence of steps.
+
+Further, they may be multple ways to structure the representation of the system as a propositional formula. Suppose we are writing a CNF formula that is the result of applying an associative binary relation R to three objects $a$, $b$ and $c$. We could choose either $(a\mbox{ R }b)\mbox{ R }c$ or $a\mbox{ R }(b\mbox{ R }c)$. The \textsc{sat}-solver may perform differently on each of these encodings. In real-world software verification, where we perform complex operations like multiplying and adding large binary numbers, there are many, many possible encodings, some of which perform drastically better than others. For example, a binary multiplier encoded as a table recording the result for every possible pair of operands performs much worse than one which borrows ideas from optimised hardware multipliers.
+
+The problem of picking an encoding for a proposition suggests the idea of pre-processing a formula before the \textsc{sat}-solver is run. It may be possible to detect opportunities to restructure a formula in such a way that the \textsc{sat}-solver returns the result in less time. If the time saved by the \textsc{sat}-solver is greater than the time taken to detect and apply the optimisations, then a net gain is made.
+
+\section{Extended resolution}
+
+The \emph{pigeonhole principle} states that, if $n > m$, it is impossible to place $n$ items in $m$ bins without any bins containing more than one item. We can attempt to verify this by encoding the contrapositive, ``it is possible to place $n>m$ items in $m$ bins without any bin containing more than one item'' as a propositional formula, and then showing that it is \textsc{unsat}. As $n$ could be arbitrarily larger than $m$, we will actually show that the assertion ``it is possible to place $n$ items in $n-1$ bins without any bin containing more than one item'' is \textsc{unsat}. If it is impossible to place $n$ items in $n-1$ bins in this way, then it is certainly impossible to place even more items (since we have to place $n$ items in $n-1$ bins on the way), so this assertion suffices.
+
+Let $P_{i,b}$ be a propositional variable standing for item $i$ being placed in bin $b$. Then we start by asserting that, for all items $1 \leq i \leq n$,
+$$P_{i,1} \vee P_{i,2} \vee \cdots \vee P_{i,n-1}.$$
+That is, for every item, it's either in bin 1, bin 2, \dots, or bin $n-1$ -- so every item is in a bin. Then we assert that, for every bin $1 \leq b \leq n-1$, for each pair of items $1 \leq i < j \leq n$,
+$$\neg P_{i,b} \vee \neg P_{j,b}.$$
+That is, for each bin, for each pair of items, one or other of those items is not in the bin -- so no pair of items is in the same bin. Together these clauses assert that it is possible to place $n$ items in $n-1$ bins without more than one item in any bin. This formula is \textsc{unsat}.
+
+One way of proving that this formula is \textsc{unsat} is to provide a resolution refutation. Where clauses are respresented as sets of literals (e.g. $a \vee \neg b = \{a, \neg b\}$), the resolution rule works as follows.
+
+\begin{table}[h]
+\begin{tabular}{lll}
+{\bf 1} & $C_1 \cup \{L\}$ & premise \\
+{\bf 2} & $C_2 \cup \{\neg L\}$ & premise \\
+{\bf 3} & $C_1 \cup C_2$ & res {\bf 1}, {\bf 2}
+\end{tabular}
+\end{table}
+
+For example, we can use resolution to prove the pigeonhole principle for the easy $n = 2$ case:
+
+\begin{table}[h]
+\begin{tabular}{lll}
+{\bf 1} & $\{P_{1,1}\}$ & premise \\
+{\bf 2} & $\{P_{2,1}\}$ & premise \\
+{\bf 3} & $\{\neg P_{1,1}, \neg P_{2,1}\}$ & premise \\
+{\bf 4} & $\{\neg P_{2,1}\}$ & res {\bf 1}, {\bf 3} \\
+{\bf 5} & $\bot$ & res {\bf 2}, {\bf 4}
+\end{tabular}
+\end{table}
+
+This is in fact a tree resolution proof, because no clause is antecedent to more than one other clause. Unfortunately, for sufficiently large $n$, a tree resolution proof of the pigeonhole principle for $n$ items requires $2^{\Omega(n)}$ steps, suggesting that tree resolution may not be the best proof system to use when proving the pigeonhole principle.
+% Haken 1985
+However, runs of DPLL-based \textsc{sat}-solvers on \textsc{unsat} formulas correspond to tree resolution refutations of the formula, which suggests that such \textsc{sat}-solvers will exhibit low performance on instances of the pigeonhole principle, and perhaps other similar formulas.
+% Handbook of constraint programming
+
+
+\section{Genetic algorithms}
+
+\begin{itemize}
+  \item Introduction to GAs
+  \item Idea for picking subclauses
+\end{itemize}
+
+\section{Technical implementation}
+
+\begin{itemize}
+  \item Performing extension
+  \item Measuring performance
+  \item Extension inside a GA
+  \item Execution of algorithm
+\end{itemize}
+
+\section{Analysis of results}
+
+\begin{itemize}
+\end{itemize}
+
+\begin{Conclusion}
+
+
+\end{document}
