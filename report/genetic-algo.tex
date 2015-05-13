@@ -1,0 +1,15 @@
+\centering
+\begin{tikzpicture}
+  \node[draw=none] at (0,1) {10010\underline{\bf 011}};
+  \node[draw=none] at (0,3) {\underline{\bf 10111}000};
+
+  \node[draw=none] at (4,2) {\bf 10111011};
+  \node[draw=none] at (2,0.2) {\bf Crossover};
+
+  \node[draw=none] at (8,2) {\bf 101\underline{0}1\underline{1}11};
+  \node[draw=none] at (6,0.2) {\bf Mutation};
+
+  \draw[line width=1pt] [->] (1.0,3) .. controls (2.0,3.0) and (2.5,2.7) .. (3.0,2.3);
+  \draw[line width=1pt] [->] (1.0,1) .. controls (2.0,1.0) and (2.5,1.3) .. (3.0,1.7);
+  \draw[line width=1pt] [->] (5.0,2) to (7.0,2);
+\end{tikzpicture}
