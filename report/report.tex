@@ -1,17 +1,29 @@
-\documentclass[11pt]{article}
+\documentclass[pdftex,11pt,a4]{article}
 \usepackage[parfill]{parskip}
 \usepackage{lmodern}
 \usepackage{amsmath, amsthm, amssymb}
+\usepackage[usenames,dvipsnames]{xcolor}
 \usepackage{tikz}
 \usepackage{subcaption}
 \usepackage{placeins}
+\usepackage[pdftex]{graphicx}
+\usepackage[T1]{fontenc}
+\usepackage{calc}
+
+\usepackage{listings}
+\usepackage{inconsolata}
+\lstset{basicstyle=\footnotesize\ttfamily,breaklines=true}
+\lstset{language=Python, basewidth=0.5em,
+  keywordstyle=\color{blue}, commentstyle=\color{Green}}
+
+\def\code{\lstinline[basicstyle=\textsize\ttfamily]}
 
 \newcommand{\sat}{\textsc{sat}}
 \newcommand{\unsat}{\textsc{unsat}}
 
 \begin{document}
 
-\title{Exploring Strategies for Performing Extended Resolution as a Preprocessing Step for \sat-Solving}
+\title{\textbf{Exploring Strategies for Performing Extended Resolution as a Preprocessing Step for SAT-Solving}}
 \author{Eliot Ball}
 
 \maketitle
@@ -162,9 +174,7 @@ In 2015, a group of students explored the possibility of using \emph{common sube
 \[x \leftrightarrow l_1 \vee l_2 \vee \cdots \vee l_n\]
 and then, in any clause containing all of $l_1, l_2, \ldots, l_n$, delete those literals, and add $x$. Three methods are given for choosing which subexpressions to eliminate. In the first, the common subexpressions are chosen such that, after they are eliminated, the problem is of minimal size. The authors conjecture that this problem is NP-hard, and give two approximate algorithms. One is based on replacing subexpressions that are found with frequency above a given threshold, and the other is based on the LZW string-compression algorithm. All of these strategies are implemented as a pre-processing step before running the \sat{}-solver. This approach is attractive because of its simplicity, and the authors find an improvement in performance in some cases.
 
-[Need to say what my plan is here]
-
-% Idea of using this as a pre-processing step for a SAT-solver
+For this project, I hypothesise that, for some propositional formulas arising in real-world model checking, there are sets of substitutions of repeated subclauses with size 2 or 3 (that is, there are pairs or triplets of literals which appear in multiple clauses) which can be replaced by extension with a single variable, leading to an improvement in the performance of the \textsc{MiniSat} solver on those instances. I investigate this by attempting to use a genetic algorithm to find such sets of substitutions.
 
 \section{Genetic algorithms}
 
@@ -186,22 +196,50 @@ In the step where a new population is being generated from the high-fitness samp
 
 The aim of the crossover part of the algorithm is to allow good features that are developed in separate members of the population to be combined as ``building blocks'', sometimes leading to a member of the population that is stronger than either of the original members \cite{Goldberg:1989}. In some variations on the basic genetic algorithm, multiple ``cuts'' are made so that more than two members of the population may be combined, but this hasn't been found to produce better final outcomes in most cases, and can lead to premature convergence, owing to a loss of genetic diversity in the population \cite{Esquivel:1997}.
 
-The aim of the mutation part of the algorithm is to allow the exploration of ``nearby'' members of the population. If the search space is sufficiently smooth with respect to the fitness function, then this leads to a hillclimbing effect. This also means that care must be taken with the encoding of solutions as bit vectors, and when setting the rate of mutation, since certain encodings or rates of mutation may not lead to a sufficiently similar ``neighbouring'' solutions for the hillclimbing effect to work correctly \cite{Taher:2013}.
+The aim of the mutation part of the algorithm is to allow the exploration of ``nearby'' members of the population. If the search space is sufficiently smooth with respect to the fitness function, then this leads to a hillclimbing effect. This also means that care must be taken with the encoding of solutions as bit vectors, and when setting the rate of mutation, since certain encodings or rates of mutation may not lead to a sufficiently similar ``neighbouring'' solutions for the hillclimbing effect to work correctly \cite{Taher:2013}. In general, the probability of any bit in a member of the population being flipped should not be above 0.05, and with a mutation rate below that threshold, the population size should be between approximately 30 and 100 \cite{Grefenstette:1986}.
 
-There are many different strategies for the selection phase where the high-fitness sample is chosen. The simplest is \emph{truncation selection}, which is the outcome of sorting the population by fitness, and taking the best $k$ members, for some $k$. An alternative approach is \emph{fitness proportionate selection}, also called \emph{roulette-wheel selection}, where we calculate the fitness of each individual, and then assign each individual some part of the $[0,1]$ interval, so that the size of each individual's section of the interval is proportional to its fitness. Then a random point in the $[0,1]$ interval is picked, and the corresponding member of the population is added to the high-fitness sample. This is repeated $k$ times, where $k$ is the desired size of the high-fitness sample.
+There are several different strategies for the selection phase, where the high-fitness sample is chosen \cite{Thierens:1994}. The simplest is \emph{truncation selection}, which is the outcome of sorting the population by fitness, and taking the best $k$ members, for some $k$. An alternative approach is \emph{fitness proportionate selection}, also called \emph{roulette-wheel selection}, where we calculate the fitness of each individual, and then assign each individual some part of the $[0,1]$ interval, so that the size of each individual's section of the interval is proportional to its fitness. Then a random point in the $[0,1]$ interval is picked, and the corresponding member of the population is added to the high-fitness sample. This is repeated $k$ times, where $k$ is the desired size of the high-fitness sample. Both of these strategies generally perform well, but fitness proportionate selection can run in to problems at later stages of execution when the fitness values of the population are similar, as it might not provide enough selection pressure to improve the population \cite{Whitley:1989}. As the fitness values of members of the population in this project are indeed likely to be similar, I chose to use truncation selection.
 
-[Picking the population size, and how much mutation to do]
-
-
+% Elitism
 
 \section{Technical implementation}
 
-\begin{itemize}
-  \item Performing extension
-  \item Measuring performance
-  \item Extension inside a GA
-  \item Execution of algorithm
-\end{itemize}
+In the technical implementation of this project, I obtained a number of benchmarks that come from real-world bounded model checking. The benchmarks come from implementations of the Newton-Raphson method, polynomial approximations of sine, and squaring of floating-point numbers. To execute the genetic algorithm on a given benchmark, we follow this algorithm:
+
+\begin{samepage}
+  \begin{enumerate}
+    \item Find, and number, all of the repeated subclauses of size 2 or 3.
+    \item Generate an initial population of 50 bit vectors, each having one bit per subclause.
+    \item For each member of the population, create a new benchmark file by performing the required extensions.
+    \item Run \textsc{MiniSat} on each member of the population, recording the time taken.
+    \item If the average fitness for the whole population has converged, terminate.
+    \item Rank members of the population by their \textsc{MiniSat} time, and take the best half.
+    \item Generate a new population of 50 comprising the best half of the previous population, along with another half created from that half by crossover and mutation.
+    \item Go to Step 3.
+  \end{enumerate}
+\end{samepage}
+
+% Plan for next time: go through each of these in turn, writing a paragraph about how this was done, and including code samples. This will take up a lot of pages which is good.
+
+Finding all of the repeated subclauses of size 2 or 3 could be done in many ways. For example, simply passing over the file counting the number of occurrences of each subclause would work, particularly when each clause is small. This problem has been studied relatively extensively within the field of database mining, where fast algorithms such as the \emph{Apriori algorithm} have been discovered, which scale up effectively to very large datasets \cite{Agrawal:1994}. A detailed investigation of these algorithms is beyond the scope of this project, since the goal is simply to determine whether there are sets of subclause replacements which improve \sat{}-solver perfomance. For Step 1 of the above algorithm, I simply call an existing program that uses the Apriori algorithm \cite{Borgelt:2003}.
+
+\begin{figure}[p]
+  \input{population-class.tex}
+  \caption{The essential methods of the Population class. (Code that performs logging, and other ancillory functions like converting the population to and from strings, is not included here as it is immaterial to the behaviour of the program.)}
+  \label{fig:population-class}
+\end{figure}
+
+For the genetic algorithm, the population is handled by the \code{Population} class (see Figure \ref{fig:population-class}). The initial population is generated in the \code{__init__} method by creating 48 (or 2 less than \code{population_size} if that is not 50) random bit vectors of the appropriate length. The bit vectors are represented as lists of boolean values. This is not very efficient in memory, but it doesn't matter because the population is quite small.
+
+
+
+
+% Performing extension
+% Measuring performance
+% Extension inside a GA
+% Execution of algorithm
+
+
 
 \section{Analysis of results}
 
@@ -211,6 +249,7 @@ There are many different strategies for the selection phase where the high-fitne
 
 \section{Conclusion}
 
+\FloatBarrier
 \bibliography{report}
 \bibliographystyle{apalike}
 

@@ -1,10 +1,11 @@
 import random
-import operator
 import time
 import json
 
+
 def random_bit():
     return random.random() > 0.5
+
 
 def bits_on(seq):
     # For testing
@@ -14,11 +15,12 @@ def bits_on(seq):
             count += 1
     return count
 
+
 class Population():
     def __init__(self, string_length=20, size=1000, select_best=50):
         self.size = size
         self.select_best = select_best
-        self.members = [[random_bit() for j in xrange(string_length)] 
+        self.members = [[random_bit() for j in xrange(string_length)]
                         for i in xrange(size - 2)]
         self.members += [[True for i in xrange(string_length)]]
         self.members += [[False for i in xrange(string_length)]]
@@ -52,10 +54,10 @@ class Population():
     def get_best_few(self, scoring_function):
         scores = []
         for member in self.members:
-            score, other_data = scoring_function(member)
+            this_score, other_data = scoring_function(member)
             scores += [{
                 "member": member,
-                "score": score,
+                "score": this_score,
                 "other_data": other_data
             }]
             scores.sort(key=lambda s: s["score"])  # smaller is better
@@ -63,7 +65,7 @@ class Population():
         return total_fitness, [i["member"] for i in scores[:self.select_best]], scores
 
     def improve(self, scoring_function, mutation_probability=0.01,
-            recording=False, log_file=None):
+                recording=False, log_file=None):
         total_fitness, best_few, all_scores = self.get_best_few(scoring_function)
         if recording:
             log_line = {}
@@ -97,7 +99,7 @@ class Population():
             assert len(left_parent) == len(right_parent)
             crossover_point = random.randint(0, len(left_parent))
             new_member = left_parent[:crossover_point] \
-                    + right_parent[crossover_point:]
+                + right_parent[crossover_point:]
             # Mutation
             for i in xrange(len(new_member)):
                 if random.random() < mutation_probability:
@@ -105,13 +107,13 @@ class Population():
             self.members += [new_member]
 
     def get_good_example(self, scoring_function, threshold=0.001,
-            recording=False, log_file=None):
+                         recording=False, log_file=None):
         start_time = time.time()
         last_fitness = self.improve(scoring_function, recording=recording,
-                log_file=log_file)
+                                    log_file=log_file)
         print "Iteration 1    Pop fitness: " + str(last_fitness)
         this_fitness = self.improve(scoring_function, recording=recording,
-                log_file=log_file)
+                                    log_file=log_file)
         print "Iteration 2    Pop fitness: " + str(this_fitness)
         iterations = 2
         converged_for = 0
@@ -120,7 +122,7 @@ class Population():
             last_fitness = this_fitness
             mutation_probability *= 0.95  # decay mutations for tuning
             this_fitness = self.improve(scoring_function, mutation_probability,
-                    recording=recording, log_file=log_file)
+                                        recording=recording, log_file=log_file)
             if 1 - threshold < float(this_fitness) / last_fitness < 1 + threshold:
                 converged_for += 1
             else:
