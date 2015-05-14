@@ -219,8 +219,6 @@ In the technical implementation of this project, I obtained a number of benchmar
   \end{enumerate}
 \end{samepage}
 
-% Plan for next time: go through each of these in turn, writing a paragraph about how this was done, and including code samples. This will take up a lot of pages which is good.
-
 Finding all of the repeated subclauses of size 2 or 3 could be done in many ways. For example, simply passing over the file counting the number of occurrences of each subclause would work, particularly when each clause is small. This problem has been studied relatively extensively within the field of database mining, where fast algorithms such as the \emph{Apriori algorithm} have been discovered, which scale up effectively to very large datasets \cite{Agrawal:1994}. A detailed investigation of these algorithms is beyond the scope of this project, since the goal is simply to determine whether there are sets of subclause replacements which improve \sat{}-solver perfomance. For Step 1 of the above algorithm, I simply call an existing program that uses the Apriori algorithm \cite{Borgelt:2003}.
 
 \begin{figure}[p]
