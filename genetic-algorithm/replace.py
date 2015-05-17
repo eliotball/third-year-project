@@ -4,7 +4,6 @@ import time
 import copy
 
 class Formula:
-    
     def __init__(self, raw_cnf):
         """
         Initialise a Formula from a raw CNF string.
@@ -69,8 +68,8 @@ class Formula:
         """
         self.next_fresh += 1
         return self.next_fresh
-    
-    def use_variable(self, variable):   
+
+    def use_variable(self, variable):
         """
         Ensure that a variable will not be returned as a fresh variable later.
 

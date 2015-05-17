@@ -1,48 +1,48 @@
 %\hspace*{-1cm}%
 \begin{minipage}{\textwidth+2cm}
   \begin{lstlisting}
-class Population():
-  def __init__(self, string_length, size=50, select_best=25):
-      self.size = size
-      self.select_best = select_best
-      self.members = [[random_bit() for j in xrange(string_length)]
-                      for i in xrange(size - 2)]
-      self.members += [[True for i in xrange(string_length)]]
-      self.members += [[False for i in xrange(string_length)]]
+class Population:
+    def __init__(self, string_length, size=50, select_best=25):
+        self.size = size
+        self.select_best = select_best
+        self.members = [[random_bit() for j in xrange(string_length)]
+                        for i in xrange(size - 2)]
+        self.members += [[True for i in xrange(string_length)]]
+        self.members += [[False for i in xrange(string_length)]]
 
-  def get_best_few(self, scoring_function):
-      scores = []
-      for member in self.members:
-          this_score, other_data = scoring_function(member)
-          scores += [{
-              "member": member,
-              "score": this_score,
-              "other_data": other_data
-          }]
-          scores.sort(key=lambda s: s["score"])  # smaller is better
-      total_fitness = sum([score["score"] for score in scores])
-      return (total_fitness, [i["member"] for i in scores[:self.select_best]], scores)
+    def get_best_few(self, scoring_function):
+        scores = []
+        for member in self.members:
+            this_score, other_data = scoring_function(member)
+            scores += [{
+                "member": member,
+                "score": this_score,
+                "other_data": other_data
+            }]
+            scores.sort(key=lambda s: s["score"])  # smaller is better
+        total_fitness = sum([score["score"] for score in scores])
+        return (total_fitness, [i["member"] for i in scores[:self.select_best]], scores)
 
-  def improve(self, scoring_function, mutation_probability):
-      total_fitness, best_few, all_scores = self.get_best_few(scoring_function)
-      self.generate_new_members(best_few, mutation_probability)
-      return total_fitness
+    def generate_new_members(self, best_few, mutation_probability=0.01):
+        self.members = best_few
+        for member_count in xrange(len(best_few), self.size):
+            left_parent = random.choice(best_few)
+            right_parent = random.choice(best_few)
+            # Crossover
+            assert len(left_parent) == len(right_parent)
+            crossover_point = random.randint(0, len(left_parent))
+            new_member = left_parent[:crossover_point] \
+                + right_parent[crossover_point:]
+            # Mutation
+            for i in xrange(len(new_member)):
+                if random.random() < mutation_probability:
+                    new_member[i] = not new_member[i]
+            self.members += [new_member]
 
-  def generate_new_members(self, best_few, mutation_probability=0.01):
-      self.members = best_few
-      for member_count in xrange(len(best_few), self.size):
-          left_parent = random.choice(best_few)
-          right_parent = random.choice(best_few)
-          # Crossover
-          assert len(left_parent) == len(right_parent)
-          crossover_point = random.randint(0, len(left_parent))
-          new_member = left_parent[:crossover_point] \
-              + right_parent[crossover_point:]
-          # Mutation
-          for i in xrange(len(new_member)):
-              if random.random() < mutation_probability:
-                  new_member[i] = not new_member[i]
-          self.members += [new_member]
+    def improve(self, scoring_function, mutation_probability):
+        total_fitness, best_few, all_scores = self.get_best_few(scoring_function)
+        self.generate_new_members(best_few, mutation_probability)
+        return total_fitness
   \end{lstlisting}
 \end{minipage}%
 %\hspace*{-1cm}%

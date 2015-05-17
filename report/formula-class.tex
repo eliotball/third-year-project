@@ -1,0 +1,46 @@
+%\hspace*{-1cm}%
+\begin{minipage}{\textwidth+2cm}
+  \begin{lstlisting}
+class Formula:
+    def __init__(self, raw_cnf):
+        self.next_fresh = 0
+        self.literal_locations = {}
+        self.clauses = []
+        lines = raw_cnf.split("\n")
+        for line in lines:
+            if len(line) == 0 or line[0] == "c" or line[0] == "p":
+                pass
+            else:
+                parts = [int(part) for part in line.strip().split(" ") if part != ""]
+                self.add_clause(parts[:-1])
+
+    def add_clause(self, literals):
+        self.clauses += [literals]
+        # Do some extra processing to help the find_clauses_containing method
+        ...
+
+    def find_clauses_containing(self, literals):
+        # Quickly find all of the clauses containing the given literals
+        ...
+
+    def extend(self, variables):
+        x = self.get_fresh_variable()
+        var_set = set(variables)
+        for clause_number in self.find_clauses_containing(variables):
+            new_clause = [x]
+            for literal in self.clauses[clause_number]:
+                if literal not in var_set:
+                    new_clause += [literal]
+            self.clauses[clause_number] = new_clause
+        self.add_clause([-x] + variables)
+        for variable in variables:
+            self.add_clause([-variable, x])
+
+    def to_cnf_file(self):
+        result = "p cnf " + str(self.next_fresh) + " " + str(len(self.clauses))
+        for clause in self.clauses:
+            result += "\n" + " ".join(str(l) for l in clause) + " 0"
+        return result
+  \end{lstlisting}
+\end{minipage}%
+%\hspace*{-1cm}%

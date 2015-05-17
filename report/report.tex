@@ -9,12 +9,13 @@
 \usepackage[pdftex]{graphicx}
 \usepackage[T1]{fontenc}
 \usepackage{calc}
+\usepackage{multirow}
 
 \usepackage{listings}
 \usepackage{inconsolata}
 \lstset{basicstyle=\footnotesize\ttfamily,breaklines=true}
 \lstset{language=Python, basewidth=0.5em,
-  keywordstyle=\color{blue}, commentstyle=\color{Green}}
+  keywordstyle=\color{blue}, commentstyle=\color{Green}, stringstyle=\color{Red}}
 
 \def\code{\lstinline[basicstyle=\textsize\ttfamily]}
 
@@ -48,27 +49,27 @@ Each literal is either a variable or its negation. Note that this formula just r
 
 For every propositional formula, there is an equivalent CNF formula, which can be found by repeated application of DeMorgan's laws, and the laws about distributivity and double negatives. Therefore \sat{}-solvers can effectively operate on all propositional formulas.
 
-The most efficient modern \sat{}-solvers operate according to versions of the Davis-Putnam-Logemann-Loveland (DPLL) algorithm. The basis of this algorithm is essentially a depth-first search with backtracking of the whole space of partial assignments, looking for a full assignment that satisfies the formula. In the worst case, this type of exhaustive search would take $O(2^n)$ time to complete for a formula of $n$ variables. \sat{}-solvers can achieve much better performance in practice through the use of a number of heuristics. The DPLL algorithm introduced \emph{unit propagation}, which is the immediate assignment of the required value to any variables found on their own in a clause, and \emph{pure literal elimination}, which is the immediate assignment to any variable which is only found in one polarity in the whole formula (thereby making every clause containing that variable true) \cite{Davis:1962}. The latest \sat{}-solvers make heavy use of further optimisations such as faster data structures for the backtracking algorithm, better strategies for picking which variable to set at each step, and more advanced strategies for backtracking when a conflict is found \cite{Een:2003}. In particular, \emph{conflict driven clause learning} (CDCL) aims to infer a clause from a conflict which encapsulates in some sense the `reason' for the conflict, and causes the backtracking algorithm to fail more quickly on paths that would lead to failure for the same reason.
+The most efficient modern \sat{}-solvers operate according to versions of the Davis-Putnam-Logemann-Loveland (DPLL) algorithm. The basis of this algorithm is essentially a depth-first search with backtracking of the whole space of partial assignments, looking for a full assignment that satisfies the formula. In the worst case, this type of exhaustive search would take $O(2^n)$ time to complete for a formula of $n$ variables. \sat{}-solvers can achieve much better performance in practice through the use of a number of heuristics. The DPLL algorithm introduced \emph{unit propagation}, which is the immediate assignment of the required value to any variables found on their own in a clause, and \emph{pure literal elimination}, which is the immediate assignment to any variable which is only found in one polarity in the whole formula (thereby making every clause containing that variable true) \cite{Davis:1962}. The latest \sat{}-solvers, such as \textsc{MiniSat}, heavily exploit further optimisations such as faster data structures for the backtracking algorithm, better strategies for picking which variable to set at each step, and more advanced strategies for backtracking when a conflict is found \cite{Een:2003}. In particular, \emph{conflict driven clause learning} (CDCL) aims to infer a clause from a conflict which encapsulates, in some sense, the `reason' for the conflict, and causes the backtracking algorithm to fail more quickly on other paths that would lead to failure for the same reason.
 
 \section{Encodings and pre-processing}
 
 For a given proposition about a system, there are many possible ways to encode that proposition in the CNF format accepted by the \sat{}-solver. For example, the ordering of the literals within each of the clauses, and the ordering of the clauses themselves may be changed. Because the \sat{}-solver has to make deterministic choices that are not prescribed in the DPLL algorithm, it may behave differently for different orderings. Therefore, even though $(l_0 \vee l_1) \wedge l_2 = (l_1 \vee l_0) \wedge l_2 = l_2 \wedge (l_0 \vee l_1)$, the \sat{}-solver may arrive at the solution to each of these formulas via a different sequence of steps.
 
-Further, they may be multple ways to structure the representation of the system as a propositional formula. Suppose we are writing a CNF formula that is the result of applying an associative binary relation R to three objects $a$, $b$ and $c$. We could choose either $(a\mbox{ R }b)\mbox{ R }c$ or $a\mbox{ R }(b\mbox{ R }c)$. The \sat{}-solver may perform differently on each of these encodings. In real-world software verification, where we perform complex operations like multiplying and adding large binary numbers, there are many, many possible encodings, some of which perform drastically better than others. For example, a binary multiplier encoded as a table recording the result for every possible pair of operands performs much worse than one which borrows ideas from optimised hardware multipliers. [Is this true?]
+Further, they may be multple ways to structure the representation of a system as a propositional formula. Suppose, for example, that we are writing a CNF formula that is the result of applying an associative binary relation R to three objects $a$, $b$ and $c$. We could choose either $(a\mbox{ R }b)\mbox{ R }c$ or $a\mbox{ R }(b\mbox{ R }c)$. The \sat{}-solver may perform differently on each of these encodings. In real-world software verification, where we perform complex operations like multiplying and adding large binary numbers, there are many, many possible encodings, some of which perform drastically better than others. For example, a binary multiplier encoded as a table recording the result for every possible pair of operands performs much worse than one that borrows ideas from optimised hardware multipliers. [Is this true?]
 
 The problem of picking an encoding for a proposition suggests the idea of pre-processing a formula before the \sat{}-solver is run. It may be possible to detect opportunities to re-structure a formula in such a way that the \sat{}-solver returns the result in less time. If the time saved by the \sat{}-solver is greater than the time taken to detect and apply the optimisations, then a net gain is made.
 
 \section{Extended resolution}
 
-The \emph{pigeonhole principle} states that, if $n > m$, it is impossible to place $n$ items in $m$ bins without any bins containing more than one item. We can attempt to verify this by encoding the contrapositive, ``it is possible to place $n>m$ items in $m$ bins without any bin containing more than one item'' as a propositional formula, and then showing that it is \unsat. As $n$ could be arbitrarily larger than $m$, we will actually show that the propositional formula encoding the assertion ``it is possible to place $n$ items in $n-1$ bins without any bin containing more than one item'' is \unsat. If it is impossible to place $n$ items in $n-1$ bins in this way, then it is certainly impossible to place even more items (since we have to place $n$ items in $n-1$ bins on the way), so this assertion suffices.
+The \emph{pigeonhole principle} states that, if $n > m$, it is impossible to place $n$ items in $m$ bins without any bins containing more than one item. We can attempt to verify this by encoding the contrapositive, ``it is possible to place $n>m$ items in $m$ bins without any bin containing more than one item'' as a propositional formula, and then showing that it is \unsat. As $n$ could be arbitrarily larger than $m$, we will actually show that the propositional formula encoding the assertion ``it is possible to place $n$ items in $n-1$ bins without any bin containing more than one item'' is \unsat. If it is impossible to place $n$ items in $n-1$ bins in this way, then it is certainly impossible to place even more than $n$ items (since we have to place $n$ items in $n-1$ bins on the way), so this assertion suffices.
 
 Let $P_{i,b}$ be a propositional variable standing for item $i$ being placed in bin $b$. Then we start by asserting that, for all items $1 \leq i \leq n$,
 \[P_{i,1} \vee P_{i,2} \vee \cdots \vee P_{i,n-1}.\]
 That is, for every item, it's either in bin 1, bin 2, \dots, or bin $n-1$ -- so every item is in a bin. Then we assert that, for every bin $1 \leq b \leq n-1$, for each pair of items $1 \leq i < j \leq n$,
 \[\neg P_{i,b} \vee \neg P_{j,b}.\]
-That is, for each bin, for each pair of items, one or other of those items is not in the bin -- so no pair of items is in the same bin. Together these clauses assert that it is possible to place $n$ items in $n-1$ bins without more than one item in any bin. This formula is \unsat.
+That is, for each bin, for each pair of items, one or other of those items is not in the bin -- so no pair of items is in the same bin. Together, these clauses assert that it is possible to place $n$ items in $n-1$ bins without more than one item in any bin. This formula is \unsat.
 
-One way of proving that this formula is \unsat{} is to provide a resolution refutation. Where clauses are respresented as sets of literals (e.g. $a \vee \neg b = \{a, \neg b\}$), the resolution rule works as follows.
+One way of proving that this formula is \unsat{} is to provide a resolution refutation. Where clauses are respresented as sets of literals (e.g. $a \vee \neg b$ is represented by $\{a, \neg b\}$), the resolution rule works as follows.
 
 \begin{table}[h]
   \begin{tabular}{lll}
@@ -79,7 +80,7 @@ One way of proving that this formula is \unsat{} is to provide a resolution refu
 \end{table}
 \FloatBarrier
 
-For example, we can use resolution to prove the pigeonhole principle for the easy $n = 2$ case:
+For example, we can use resolution to prove the pigeonhole principle for the easy $n = 2$ case (where there is only one bin):
 
 \begin{table}[h]
   \begin{tabular}{lll}
@@ -92,11 +93,11 @@ For example, we can use resolution to prove the pigeonhole principle for the eas
 \end{table}
 \FloatBarrier
 
-This is, in fact, a \emph{tree resolution} proof, because no clause is antecedent to more than one other clause. Unfortunately, for sufficiently large $n$, a tree resolution proof of the pigeonhole principle for $n$ items requires $2^{\Omega(n)}$ steps, suggesting that tree resolution may not be the best proof system with which to prove the pigeonhole principle.
+This is, in fact, a \emph{tree resolution} proof, because no clause is an antecedent of more than one other clause. Unfortunately, for sufficiently large $n$, a tree resolution proof of the pigeonhole principle for $n$ items requires $2^{\Omega(n)}$ steps, suggesting that tree resolution may not be the best proof system with which to prove the pigeonhole principle.
 % Haken 1985
 However, runs of DPLL-based \sat{}-solvers on \unsat{} formulas correspond to tree resolution refutations of the formula, which suggests that such \sat{}-solvers will exhibit low performance on instances of the pigeonhole principle, and perhaps other similar formulas.
 % Handbook of constraint programming
-This raises the question of whether there is a more powerful system that allows a sub-exponential length proof, and thus better performance by a DPLL-based \sat{}-solver on this type of instance. One such system is \emph{extended resolution}.
+This raises the question of whether there is a more powerful system that allows a sub-exponential length proof -- and thus better performance by a DPLL-based \sat{}-solver -- on this type of instance. These systems do exist, and one such system is \emph{extended resolution}.
 
 % Suggests using a more powerful system
 
@@ -111,9 +112,9 @@ The set of clauses representing this addition is
   \end{align*}
 \end{equation*}
 
-Extended resolution suggests itself as a good candidate for a more powerful system because it permits a polynomial-length proof of the pigeonhole principle \cite{Cook:1976}.
+Extended resolution permits a polynomial-length proof of the pigeonhole principle \cite{Cook:1976}, which is outlined below.
 
-A conventional proof of the pigeonhole principle works by induction on $n$. First, it can easily be shown that it's not possible to assign 2 items to 1 bin without the sole bin containing more than one item (it will have to contain both!), as we did by resolution above. We will phrase this as the lack of an injective mapping from $\{1,2\}$ to $\{1\}$. Then, for the inductive step, we show that if there is a mapping from $\{1,2,\ldots,n\}$ to $\{1,2,\ldots,n-1\}$, then there is a mapping from $\{1,2,\ldots,n-1\}$ to $\{1,2,\ldots,n-2\}$. We do this by supposing that $\phi$ is an injective mapping from $\{1,2,\ldots,n\}$ to $\{1,2,\ldots,n-1\}$, in which case
+A conventional proof of the pigeonhole principle works by induction on $n$. First, it can easily be shown that it's not possible to assign 2 items to 1 bin without the sole bin containing more than one item (it will have to contain both!), as we did by resolution above. We will see this as the lack of an injective mapping from $\{1,2\}$ to $\{1\}$. Then, for the inductive step, we show that if there is a mapping from $\{1,2,\ldots,n\}$ to $\{1,2,\ldots,n-1\}$, then there is a mapping from $\{1,2,\ldots,n-1\}$ to $\{1,2,\ldots,n-2\}$. We do this by supposing that $\phi$ is an injective mapping from $\{1,2,\ldots,n\}$ to $\{1,2,\ldots,n-1\}$, in which case
 \[\phi'(i) = \begin{cases}
 \phi(n) & \mbox{if } \phi(i) = n-1, \\
 \phi(i) & \mbox{otherwise}
@@ -130,11 +131,11 @@ is an injective mapping from $\{1,2,\ldots,n-1\}$ to $\{1,2,\ldots,n-2\}$. Intui
     \input{right-pigeonhole.tex}
     \caption{The derived $\phi'$}
   \end{subfigure}
-  \caption{An illustration of the inductive step in proving the pigeonhole principle}
+  \caption{An illustration of the inductive step in proving the pigeonhole principle.}
   \label{fig:php-induction}
 \end{figure}
 
-Suppose we have the clauses restricting the values of $P_{i,b}$ for some instance of the pigeonhole principle, as given above. These clauses, if they are satisfiable, imply some mapping $\phi$. We now introduce new propositional variables $Q_{i,b}$, with $1 \leq i \leq n-1$ and $1 \leq b \leq n-2$, which, if satisfiable, describe the corresponding mapping $\phi'$. We set
+The extended resolution proof mirrors this process. Suppose we have the clauses restricting the values of $P_{i,b}$ for some instance of the pigeonhole principle, as given above. These clauses, if they are satisfiable, imply some mapping $\phi$. We now introduce new propositional variables $Q_{i,b}$, with $1 \leq i \leq n-1$ and $1 \leq b \leq n-2$, which, if satisfiable, describe the corresponding mapping $\phi'$. We set
 
 \begin{equation*}
   \begin{align*}
@@ -168,7 +169,7 @@ These clauses describe the pigeonhole principle for $n-1$ items. Repeating this 
 
 We have seen by the example of the pigeonhole principle that adding extension to the resolution proof system can sometimes permit polynomial-length proofs of assertions that would otherwise require exponential length. Since tree resolution proofs correspond to runs of DPLL-based \sat{}-solvers, adding the ability to perform extension in the process of \sat{}-solving can potentially improve the performance of \sat{}-solvers.
 
-In 2010, a restriction of extended resolution was demonstrated which may be used to create a \sat{}-solver which, in some cases, outperforms ones that do not use extension \cite{Audemard:2010}. The authors note that, prior to their paper, no \sat{}-solver based on extended resolution had been proposed, because ``it is hard to devise a heuristic that introduces variables that are likely to help find a short refutation''. In other words, it is unclear which extensions to perform, in order to increase performance. They propose restricting the situations where extension may be performed to those where there are two clauses, $C_1 = l_1 \vee \alpha$ and $C_2 = l_2 \vee \beta$, where neither $\alpha$ nor $\beta$ contain negations of any literals contained in the other, in which case extension may be performed to introduce $z \leftrightarrow \neg l_1 \vee \neg l_2$. The aim of doing so is to avoid redundancy in any later sequence of resolutions producing a new pair of clauses which essentially only differ in that one includes $l_1$ and the other $l_2$. They describe a performant way of implementing this strategy that outperformed state-of-the-art \sat{}-solvers on instances from recent competitions.
+In 2010, a restriction of extended resolution was demonstrated which may be used to create a \sat{}-solver that, in some cases, outperforms ones that do not use extension \cite{Audemard:2010}. The authors note that, prior to their paper, no \sat{}-solver based on extended resolution had been proposed, because ``it is hard to devise a heuristic that introduces variables that are likely to help find a short refutation''. In other words, it is unclear which extensions to perform, in order to increase performance. They propose restricting the situations where extension may be performed to those where there are two clauses, $C_1 = l_1 \vee \alpha$ and $C_2 = l_2 \vee \beta$, where neither $\alpha$ nor $\beta$ contain negations of any literals contained in the other, in which case extension may be performed to introduce $z \leftrightarrow \neg l_1 \vee \neg l_2$. The aim of doing so is to avoid redundancy in any later sequence of resolutions producing a new pair of clauses which essentially only differ in that one includes $l_1$ and the other $l_2$. They describe a performant way of implementing this strategy that outperformed state-of-the-art \sat{}-solvers on instances from recent competitions.
 
 In 2015, a group of students explored the possibility of using \emph{common subexpression elimination} (CSE) in various ways to improve the performance of \sat{}-solving \cite{Yan:2015}. They suggest eliminating certain repeated subexpressions by introducing new variables using a generalised version of extension (although they do not actually mention extended resolution themselves). If $\{l_1, l_2, \ldots, l_n\}$ is a set of literals from a propositional formula and $x$ is a fresh variable, then we can introduce the clauses necessary to establish
 \[x \leftrightarrow l_1 \vee l_2 \vee \cdots \vee l_n\]
@@ -190,7 +191,7 @@ In the step where a new population is being generated from the high-fitness samp
 
 \begin{figure}[h]
   \input{genetic-algo.tex}
-  \caption{An illustration of the generation of a new member from a pair of parents in a genetic algorithm}
+  \caption{An illustration of the generation of a new member from a pair of parents in a genetic algorithm.}
   \label{fig:genetic-algo}
 \end{figure}
 
@@ -222,20 +223,51 @@ In the technical implementation of this project, I obtained a number of benchmar
 Finding all of the repeated subclauses of size 2 or 3 could be done in many ways. For example, simply passing over the file counting the number of occurrences of each subclause would work, particularly when each clause is small. This problem has been studied relatively extensively within the field of database mining, where fast algorithms such as the \emph{Apriori algorithm} have been discovered, which scale up effectively to very large datasets \cite{Agrawal:1994}. A detailed investigation of these algorithms is beyond the scope of this project, since the goal is simply to determine whether there are sets of subclause replacements which improve \sat{}-solver perfomance. For Step 1 of the above algorithm, I simply call an existing program that uses the Apriori algorithm \cite{Borgelt:2003}.
 
 \begin{figure}[p]
+  \input{formula-class.tex}
+  \caption{The essential methods of the \code{Formula} class. (Some helper code, which allows the class to be more efficient, has been omitted in the interest of clarity.)}
+  \label{fig:formula-class}
+\end{figure}
+
+I represent a propositional formula by an instance of the \code{Formula} class (See Figure \ref{fig:formula-class}). The constructor takes as an argument a CNF formula in the standard DIMACS format (See Figure \ref{fig:dimacs}), and stores it internally as a list of lists of integers. Each inner list represents a clause, and each integer represents a literal. The integer $x$ represents the literal $l_x$ and the integer $-x$ represents the literal $\neg l_x$.
+
+\iffalse  % hide for now
+\begin{figure}[h]
+  \begin{tabular}{ll}
+    \texttt{c lorem ipsum} & \multirow{2}{250pt}{The file may start with some comments, which begin with \code{c}.} \\
+    \texttt{c dolor sit amet} &  \\
+    \texttt{p cnf 4 3} & This formula has 4 variables and 3 clauses. \\
+    \texttt{1 -2 3 0} & The clause $l_1 \vee \neg l_2 \vee l_3$. \\
+    \texttt{4 -1 -3 0} & The clause $l_4 \vee \neg l_1 \vee \neg l_3$. \\
+    \texttt{2 -4 0} & The clause $l_2 \vee \neg l_4$.
+  \end{tabular}
+  \caption{An illustration of the DIMACS format for CNF formulas.}
+  \label{fig:dimacs}
+\end{figure}
+\fi
+
+The \code{Formula} class includes a method \code{extend} which takes a list of literals $[l_1, l_2, \ldots, l_n]$ and adds a fresh variable $x$ such that
+\[x \leftrightarrow l_1 \vee l_2 \vee \cdots \vee l_n.\]
+It also finds every clause containing all of $l_1, l_2, \ldots, l_n$, and replaces those literals with a single reference to $x$. This has the effect of replacing that subclause with a single variable representing it, across the whole formula. The class also has a method \code{to_cnf_file} which can produces a string containing the current state of the formula in the DIMACS format.
+
+\begin{figure}[p]
   \input{population-class.tex}
-  \caption{The essential methods of the Population class. (Code that performs logging, and other ancillory functions like converting the population to and from strings, is not included here as it is immaterial to the behaviour of the program.)}
+  \caption{The essential methods of the \code{Population} class. (Code that performs logging, and other secondary functions like converting the population to and from strings, is not included here, as it is immaterial to the behaviour of the genetic algorithm.)}
   \label{fig:population-class}
 \end{figure}
 
-For the genetic algorithm, the population is handled by the \code{Population} class (see Figure \ref{fig:population-class}). The initial population is generated in the \code{__init__} method by creating 48 (or 2 less than \code{population_size} if that is not 50) random bit vectors of the appropriate length. The bit vectors are represented as lists of boolean values. This is not very efficient in memory, but it doesn't matter because the population is quite small.
+For the genetic algorithm, the population is handled by the \code{Population} class (see Figure \ref{fig:population-class}). The initial population is generated in the \code{__init__} method (the constructor) by creating 48 (or 2 less than \code{population_size} if that is not 50) random bit vectors of the appropriate length. We also add in the vectors $[111\cdots1]$ and $[000\cdots0]$, in case either of these extremes turns out to perform well. The bit vectors are represented as lists of boolean values. This is not very efficient in memory, but it doesn't matter because the population is quite small.
 
+The \code{Population} class also handles the logic of each iteration of the genetic algorithm. The \code{get_best_few} method takes as an argument a function \code{scoring_function} and applies this funciton to each member of the population. The \code{scoring_function} returns two values: the fitness of the population member (where a smaller value implies a fitter member), followed by an object possibly containing other data gathered during the scoring (which may be of interest when it comes to analysis of the run).
 
+\begin{figure}[h]
+  \input{run-functions.tex}
+  \caption{The functions used to run the genetic algorithm on the subclause sets. (Code that performs logging has been omitted.)}
+  \label{fig:run-functions}
+\end{figure}
 
+The run is set up by three functions that make use of the \code{Formula} and \code{Population} classes (See Figure \ref{fig:run-functions}). The function \code{run_solver} takes a \code{Formula} and a list of subclauses (so a list of lists of literals), performs the necessary extensions to replace the subclauses with representative literals, and writes the new formula to a temporary file. It then makes a system call to execute \textsc{MiniSat}, and gets the output as a string. That string is fed into the \code{SolverResult} helper class, which simply extracts the interesting information from the \textsc{MiniSat} output and stores it for easy access later.
 
-% Performing extension
-% Measuring performance
-% Extension inside a GA
-% Execution of algorithm
+The \code{run_solver} function is used by the \code{run_genetic_algorithm} function. This function takes as arguments the formula in question, along with a list of all of the possible subclauses that could be replaced (as found by the Apriori program discussed above), and generates an instance of the \code{Population} class. The length of the strings in the population is the same as the number of subclauses that could be replaced, and each string is essentially a bitmask describing which of the subclauses should actually be replaced. Then it creates a closure \code{scoring_function} which takes such a mask as an argument and obtains the actual list of subclauses to be replaced using the \code{get_sublcauses_from_mask} function, before running the solver with those replacements, and getting the time taken by \textsc{MiniSat}. This closure is passed as the \code{scoring_function} argument to \code{population.get_good_example}, which is a method in the \code{Population} class which simply calls the \code{improve} method repeatedly until the average fitness of the population hasnt' changed more by more than 0.5\% between each of three consecutive iterations, and then returns the fittest member of the final population.
 
 
 
@@ -248,6 +280,7 @@ For the genetic algorithm, the population is handled by the \code{Population} cl
 \section{Conclusion}
 
 \FloatBarrier
+
 \bibliography{report}
 \bibliographystyle{apalike}
 

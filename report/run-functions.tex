@@ -1,0 +1,32 @@
+%\hspace*{-1cm}%
+\begin{minipage}{\textwidth+2cm}
+  \begin{lstlisting}
+def run_solver(cnf, replacements):
+    new_formula = cnf.clone()
+    for replacement in replacements:
+        new_formula.extend(replacement)
+    with open("replaced.cnf", "w") as cnf:
+        cnf.write(new_formula.to_cnf_file())
+    output = os.popen("./minisat replaced.cnf").read()
+    os.system("rm replaced.cnf")
+    return SolverResult(output)
+
+def get_subclauses_from_mask(subclauses, mask):
+    used_subclauses = []
+    for i in xrange(len(mask)):
+        if mask[i]:
+            used_subclauses += [subclauses[i]]
+    return used_subclauses
+
+def run_genetic_algorithm(formula, subclauses, threshold=0.005):
+    population = genetic.Population(string_length=len(subclauses))
+    def scoring_function(mask):
+        used_subclauses = get_subclauses_from_mask(subclauses, mask)
+        result = run_solver(formula, used_subclauses)
+        return result.time, result.get_bundle()
+    good_example = population.get_good_example(scoring_function,
+                                               threshold=threshold)
+    return get_subclauses_from_mask(subclauses, good_example)
+  \end{lstlisting}
+\end{minipage}%
+%\hspace*{-1cm}%

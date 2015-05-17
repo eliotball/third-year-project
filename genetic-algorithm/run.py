@@ -1,6 +1,7 @@
 import genetic
 import replace
 import sys
+import random
 
 import os
 import math
@@ -13,8 +14,8 @@ def is_int(candidate):
         return False
 
 def get_subclauses_from_file(file_name):
-    os.system("mkfifo clauses-%s.fifo lines-%s.fifo" % (file_name, file_name)
-    os.system("cat \"" + file_name + "\" | perl -pe 's/ 0 *$//g' | tail -n +2 > lines-%s.fifo &" % file_name)
+    os.system("mkfifo clauses-%s.fifo lines-%s.fifo" % (file_name, file_name))
+    os.system("cat \"" + file_name + ("\" | perl -pe 's/ 0 *$//g' | tail -n +2 > lines-%s.fifo &" % file_name))
     os.system("./apriori -m2 -n3 -s-30 lines%s.fifo clauses-%s.fifo &" % (file_name, file_name))
     subclauses = []
     with open("clauses-%s.fifo" % file_name, "r") as fifo:
@@ -40,7 +41,7 @@ class SolverResult:
 
     def get_stat(self, name, end_marker, finish=lambda x: x):
         return finish(self.output.split(name)[1].split(": ")[1].split(end_marker)[0].strip())
-    
+
     def get_bundle(self):
         return {
             "restarts": self.restarts,
@@ -50,7 +51,7 @@ class SolverResult:
             "conflict_literals": self.conflict_literals,
             "time": self.time
         }
-    
+
     def __lt__(self, other):
         return self.time < other.time
 
@@ -63,6 +64,17 @@ def run_solver_with_replacements(cnf, replacements):
         cnf.write(new_formula.to_cnf_file())
     output = os.popen("./minisat replaced.cnf").read()
     os.system("rm replaced.cnf")
+    return SolverResult(output)
+
+def run_solver_with_replacements(cnf, replacements):
+    new_formula = cnf.clone()
+    for replacement in replacements:
+        new_formula.extend(replacement)
+    replaced_name = "replaced%s.cnf" % random.randint(100000, 999999)
+    with open(replaced_name, "w") as cnf:
+        cnf.write(new_formula.to_cnf_file())
+    output = os.popen("./minisat %s" % replaced_name).read()
+    os.system("rm %s" % replaced_name)
     return SolverResult(output)
 
 def get_subclauses_from_mask(subclauses, mask):
