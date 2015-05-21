@@ -121,9 +121,32 @@ def get_time_distribution(formula, repeats=10):
     std_dev = math.sqrt(sum([(val - mean)**2.0 for val in times]) / repeats)
     print "Std dev: %6f (%6f)" % (std_dev, std_dev / mean)
 
+numbering = [
+    "sine_2_false-unreach-call.cnf",
+    "square_2_false-unreach-call.cnf",
+    "square_8_true-unreach-call.cnf",
+    "square_1_false-unreach-call.cnf",
+    "sine_1_false-unreach-call.cnf",
+    "sine_3_false-unreach-call.cnf",
+    "square_3_false-unreach-call.cnf",
+    "sine_8_true-unreach-call.cnf",
+    "newton_1_8_false-unreach-call.cnf",
+    "sine_7_true-unreach-call.cnf",
+    "newton_1_7_false-unreach-call.cnf",
+    "newton_1_5_false-unreach-call.cnf",
+    "newton_1_6_false-unreach-call.cnf",
+    "newton_1_4_false-unreach-call.cnf",
+    "newton_1_1_true-unreach-call.cnf",
+    "newton_2_6_false-unreach-call.cnf",
+    "sine_6_true-unreach-call.cnf",
+    "newton_1_2_true-unreach-call.cnf",
+    "newton_2_8_false-unreach-call.cnf",
+    "square_7_true-unreach-call.cnf",
+]
+
 if __name__ == "__main__":
-    formula_file = sys.argv[1]
-    log_name = sys.argv[2]
+    formula_file = "formulas/" + numbering[int(sys.argv[1])]
+    log_name = "logs/" + numbering[int(sys.argv[1])].replace(".cnf", ".log")
     subclauses = get_subclauses_from_file(formula_file)
     print "RUN FOR %s" % formula_file
     print str(len(subclauses)) + " repeated subclauses found"
