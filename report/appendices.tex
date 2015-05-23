@@ -7,19 +7,18 @@ The clauses representing the pigeonhole principle for $n=3$ are:
 \begin{tabular}{rllll}
    & $\{P_{1,1}, P_{1,2}\},$ & $\{P_{2,1}, P_{2,2}\},$ & $\{P_{3,1}, P_{3,2}\},$ & \\
   & $\{\neg P_{1,1}, \neg P_{2,1}\},$ & $\{\neg P_{1,1}, \neg P_{3,1}\},$ & $\{\neg P_{2,1}, \neg P_{3,1}\},$ & \\
-  & $\{\neg P_{1,2}, \neg P_{2,2}\},$ & $\{\neg P_{1,2}, \neg P_{3,2}\},$ & $\{\neg P_{2,2}, \neg P_{3,2}\}$ &
+  & $\{\neg P_{1,2}, \neg P_{2,2}\},$ & $\{\neg P_{1,2}, \neg P_{3,2}\},$ & $\{\neg P_{2,2}, \neg P_{3,2}\}.$ &
 \end{tabular}
 
 We perform four extensions:
 \begin{equation*}
   \begin{align*}
-    Q_{1,1} &\leftrightarrow P_{1,1} \vee P_{1,2} \\
-    Q_{1,1} &\leftrightarrow P_{1,1} \vee P_{3,1} \\
-    Q_{2,1} &\leftrightarrow P_{2,1} \vee P_{2,2} \\
+    Q_{1,1} &\leftrightarrow P_{1,1} \vee P_{1,2}, \\
+    Q_{1,1} &\leftrightarrow P_{1,1} \vee P_{3,1}, \\
+    Q_{2,1} &\leftrightarrow P_{2,1} \vee P_{2,2}, \\
     Q_{2,1} &\leftrightarrow P_{2,1} \vee P_{3,1}.
   \end{align*}
 \end{equation*}
-
 This introduces the following additional clauses:
 
 \begin{tabular}{lll}
@@ -37,10 +36,12 @@ This introduces the following additional clauses:
   $\{\neg P_{3,1}, Q_{2,1}\}$
 \end{tabular}
 
+Note that two of the clauses introduced in the extension step are actually duplicates.
+
 The pigeonhole principle for $n=2$ is represented by just three clauses:
 \[\{Q_{1,1}\}, \{Q_{2,1}\}, \{\neg Q_{1,1}, \neg Q_{2,1}\}\]
 
-The first two are easily derived with two resolutions each:
+The first two are easily derived with a handful of resolutions:
 
 \[
 \infer{\{Q_{1,1}\}}{
@@ -112,7 +113,7 @@ Then, making use of those clauses, we derive two lemmas. The first states, in te
 \]
 }
 
-From those lemmas we finally derive the last of our clauses for $n=2$.
+From those lemmas we finally derive the last of the clauses for $n=2$.
 
 \scalebox{0.9}{
 \[
@@ -135,5 +136,7 @@ From those lemmas we finally derive the last of our clauses for $n=2$.
 }
 \]
 }
+
+The proof of the pigeonhole principle is completed from the clauses for $n=2$ in a few steps, as shown in Section 3.
 
 \end{appendices}

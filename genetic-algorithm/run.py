@@ -144,18 +144,32 @@ numbering = [
     "square_7_true-unreach-call.cnf",
 ]
 
+
+def time_acc(formula, used_subclauses):
+    times = []
+    for i in xrange(10):
+        result = run_solver_with_replacements(formula, used_subclauses)
+        times += [result.time]
+    return sum(times) / len(times)
+
+
+def select_half(subclauses):
+    selected = set()
+    result = []
+    while len(result) < len(subclauses) / 2:
+        index, subclause = random.choice(list(enumerate(subclauses)))
+        if index not in selected:
+            selected.add(index)
+            result += [subclause]
+    return result
+
+
 if __name__ == "__main__":
-    formula_file = "formulas/" + numbering[int(sys.argv[1])]
-    log_name = "logs/" + numbering[int(sys.argv[1])].replace(".cnf", ".log")
+    formula_file = "formulas/"
     subclauses = get_subclauses_from_file(formula_file)
-    print "RUN FOR %s" % formula_file
-    print str(len(subclauses)) + " repeated subclauses found"
     formula = get_formula_from_file(formula_file)
-    result = run_genetic_algorithm(formula, subclauses, log_name=log_name)
-    print str(len(result)) + " of " + str(len(subclauses)) + " selected by genetic algorithm"
-    print result
-    before_time = time_accurately(formula, [])
-    dumb_time = time_accurately(formula, subclauses)
-    found_time = time_accurately(formula, result)
-    print "Found solution which is " + str(100 * (1 - found_time / dumb_time)) + "% better than using all the subclauses"
-    print "  and " + str(100 * (1 - found_time / before_time)) + "% better than using the original formula"
+    print "NO SUBSTITUTIONS"
+    print time_acc(formula, [])
+    print "HALF SUBSTITUTIONS"
+    for i in xrange(100):
+        print time_acc(formula, select_half(subclauses))

@@ -1,4 +1,4 @@
-\documentclass[proof,pdftex,11pt,a4]{article}
+\documentclass[proof,pdftex,11pt,a4,titlepage]{article}
 \usepackage[parfill]{parskip}
 \usepackage{lmodern}
 \usepackage{amsmath, amsthm, amssymb}
@@ -8,6 +8,7 @@
 \usepackage{placeins}
 \usepackage[pdftex]{graphicx}
 \usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
 \usepackage{calc}
 \usepackage{tabularx}
 \usepackage{multirow}
@@ -15,8 +16,14 @@
 \usepackage{proof}
 \usepackage{appendix}
 
-\usepackage{dcolumn}
-\newcolumntype{.}{D{.}{.}{5}}
+\usepackage{afterpage}
+\newcommand\blankpage{%
+    \null
+    \thispagestyle{empty}%
+    \addtocounter{page}{-1}%
+    \newpage}
+
+\usepackage{pgfplots}
 
 \usepackage{graphicx}
 \DeclareGraphicsExtensions{.png}
@@ -41,11 +48,15 @@
 
 \maketitle
 
+\blankpage
+
 \section*{Summary}
 
-The summary.
+
 
 \tableofcontents
+
+\newpage
 
 \section{Introduction}
 
@@ -97,7 +108,7 @@ That is, for every item, it's either in bin 1, bin 2, \dots, or bin $n-1$ --- so
 That is, for each bin, for each pair of items, one or other of those items is not in the bin --- so no pair of items is in the same bin. Together, these clauses assert that it is possible to place $n$ items in $n-1$ bins without more than one item in any bin. This formula is \unsat.
 
 One way of proving that this formula is \unsat{} is to provide a resolution refutation. Where clauses are respresented as sets of literals (e.g. $a \vee \neg b$ is represented by $\{a, \neg b\}$), the resolution rule works as follows.\[
-\infer{C_1 \cup C_2}{
+\infer[\mathrm{res}]{C_1 \cup C_2}{
   C_1 \cup \{L\}
   &
   C_2 \cup \{\neg L\}
@@ -105,8 +116,8 @@ One way of proving that this formula is \unsat{} is to provide a resolution refu
 \]
 
 For example, we can use resolution to prove the pigeonhole principle for the easy $n = 2$ case (where there is only one bin):\[
-\infer{\bot}{
-  \infer{\{\neg P_{2,1}\}}{
+\infer[\mathrm{res}]{\bot}{
+  \infer[\mathrm{res}]{\{\neg P_{2,1}\}}{
     \{P_{1,1}\}
     &
     \{\neg P_{1,1}, \neg P_{2,1}\}
@@ -189,7 +200,7 @@ In 2010, a restriction of extended resolution was demonstrated which may be used
 
 In 2015, a group of students explored the possibility of using \emph{common subexpression elimination} (CSE) in various ways to improve the performance of \sat{}-solving \cite{Yan:2015}. They suggest eliminating certain repeated subexpressions by introducing new variables using a generalised version of extension (although they do not actually mention extended resolution themselves). If $\{l_1, l_2, \ldots, l_n\}$ is a set of literals from a propositional formula and $x$ is a fresh variable, then we can introduce the clauses necessary to establish
 \[x \leftrightarrow l_1 \vee l_2 \vee \cdots \vee l_n\]
-and then, in any clause containing all of $l_1, l_2, \ldots, l_n$, delete those literals, and add $x$. Three methods are given for choosing which subexpressions to eliminate. In the first, the common subexpressions are chosen such that, after they are eliminated, the problem is of minimal size. The authors conjecture that this problem is NP-hard, and give two approximate algorithms. One is based on replacing subexpressions that are found with frequency above a given threshold, and the other is based on the LZW string-compression algorithm. All of these strategies are implemented as a pre-processing step before running the \sat{}-solver. This approach is attractive because of its simplicity, and the authors find an improvement in performance in some cases.
+and then, in any clause containing all of $l_1, l_2, \ldots, l_n$, delete those literals, and add $x$. Three methods are given for choosing which subexpressions to eliminate. In the first, the common subexpressions are chosen such that, after they are eliminated, the problem is of minimal size. The authors conjecture that this problem is NP-hard, and give two approximate algorithms. One is based on replacing subexpressions that are found with frequency above a given threshold, and the other is based on the LZW string-compression algorithm. All of these strategies are implemented as a pre-processing step before running the \sat{}-solver. This approach is attractive because of its simplicity, and the authors find an improvement in performance in about half the cases they try.
 
 [Need to motivate this much more --- see Ruben's notes]
 
@@ -289,43 +300,116 @@ The \code{run_solver} function is used by the \code{run_genetic_algorithm} funct
 
 \section{Analysis of results}
 
+I ran the genetic algorithm on 19 instances from ???. The overall results can be found in Table \ref{table:results}. Like those of Yan et al., my results show that performing all possible replacements leads to an improvement in some cases, and not in others. The genetic algorithm, however, was able, in all cases, to find sets of replacements that lead to an improvement in performance, and often the improvement was significant. On average, performing the best set of replacements found by the algorithm lead to an improvement in performance of 85\% compared with making no replacements. Therefore, if we had an oracle that quickly produced such sets of replacements from formulas, we would have a way to dramatically improve the performance of \sat{}-solvers on benchmarks from (at least) this domain.
+
 \begin{sidewaystable}[p]
-  \hspace*{-1.5cm}
+  %\hspace*{-0.8cm}
+  %\scalebox{0.9}{
   \begin{minipage}{\textwidth+3cm}
-    \begin{tabular}{|l|c..|cc|ccc|}
+    \begin{tabular}{|l|crr|rr|rrr|}
       \hline
-      \multirow{2}{*}{Benchmark} & \multirow{2}{*}{\sat{}?} & \multirow{2}{*}{Clauses} & \multirow{2}{*}{Literals} & \multicolumn{2}{c|}{Substitutions} & \multicolumn{3}{c|}{\textsc{MiniSat} Time} \\
-       &  &  &  & Possible & Best & No rep. & All rep. & Best rep. \\ \hline
-      sine\_2\_false-unreach-call & \sat{} & 26219 & 121870 &  &  &  &   &  \\
-      square\_2\_false-unreach-call & \sat{} & 26266 & 121596 &  &  &  &   &  \\
-      square\_8\_true-unreach-call & \unsat{} & 26245 & 121533 &  &  &  &   &  \\
-      square\_1\_false-unreach-call & \sat{} & 26267 & 121599 &  &  &  &  &  \\
-      sine\_1\_false-unreach-call & \sat{} & 26513 & 123002 &  &  &  &  &  \\
-      sine\_3\_false-unreach-call & \sat{} & 26241 & 121936 &  &  &  &  &  \\
-      square\_3\_false-unreach-call & \sat{} & 26267 & 121599 &  &  &  &  &  \\
-      sine\_8\_true-unreach-call & \unsat{} & 26212 & 121849 &  &  &  &  &  \\
-      newton\_1\_8\_false-unreach-call & \sat{} & 54744 & 253226 &  &  &  &  &  \\
-      sine\_7\_true-unreach-call & \unsat{} & 26220 & 121873 &  &  &  &  &  \\
-      newton\_1\_7\_false-unreach-call & \sat{} & 54772 & 253310 &  &  &  &  &  \\
-      newton\_1\_5\_false-unreach-call & \sat{} & 54751 & 253247 &  &  &  &  &  \\
-      newton\_1\_6\_false-unreach-call & \sat{} & 54773 & 253313 &  &  &  &  &  \\
-      newton\_1\_4\_false-unreach-call & \sat{} & 54773 & 253313 &  &  &  &  &  \\
-      newton\_1\_1\_true-unreach-call & \unsat{} & 54773 & 253313 &  &  &  &  &  \\
-      newton\_2\_6\_false-unreach-call & \sat{} & 109084 & 504912 &  &  &  &  &  \\
-      sine\_6\_true-unreach-call & \unsat{} & 26241 & 121936 &  &  &  &  &  \\
-      newton\_1\_2\_true-unreach-call & \unsat{} & 54773 & 253313 &  &  &  &  &  \\
-      newton\_2\_8\_false-unreach-call & \sat{} & 109055 & 504825 &  &  &  &  &  \\
-      square\_7\_true-unreach-call & \unsat{} & 26267 & 121599 &  &  &  &  &  \\ \hline
+      \multirow{2}{*}{Benchmark} & \multirow{2}{*}{\sat{}?} & \multirow{2}{*}{Clauses} & \multirow{2}{*}{Variables} & \multicolumn{2}{c|}{Replacements} & \multicolumn{3}{c|}{\textsc{MiniSat} Time (seconds)} \\
+       &  &  &  & \mbox{Possible} & \mbox{Best} & \mbox{No reps.} & \mbox{All reps.} & \mbox{Best reps.} \\
+      \hline
+      sine\_2\_false--unreach--call & \sat{} & 26,219 & 121,870 & 2192 & 1156 & 3.11 & 1.20 & 0.10\\
+      square\_2\_false--unreach--call & \sat{} & 26,266 & 121,596 &  2192 & 1079 & 2.71 & 1.30 & 0.08 \\
+      square\_1\_false--unreach--call & \sat{} & 26,267 & 121,599 & 2192 & 1305 & 4.02 & 1.90 & 0.07 \\
+      sine\_1\_false--unreach--call & \sat{} & 26,513 & 123,002 & 2192 & 1113 & 2.27 & 1.79 & 0.05 \\
+      sine\_3\_false--unreach--call & \sat{} & 26,241 & 121,936 & 2192 & 1093 & 3.61 & 0.30 & 0.07  \\
+      square\_3\_false--unreach--call & \sat{} & 26,267 & 12,1599 & 2192 & 1090 & 4.64 & 3.87 & 0.05 \\
+      newton\_1\_8\_false--unreach--call & \sat{} & 54,744 & 253,226 & 5044 & 2469 & 6.60 & 4.72 & 0.31 \\
+      newton\_1\_7\_false--unreach--call & \sat{} & 54,772 & 253,310 &  5044 & 2491 & 12.89 & 4.93 & 1.58  \\
+      newton\_1\_5\_false--unreach--call & \sat{} & 54,751 & 253,247 &  5044 & 2477 & 12.31 & 9.38 & 0.57  \\
+      newton\_1\_6\_false--unreach--call & \sat{} & 54,773 & 253,313 &  5044 & 2555 & 15.33 & 17.31 & 0.49  \\
+      newton\_1\_4\_false--unreach--call & \sat{} & 54,773 & 253,313 &  5044 & 2529 & 23.07 & 14.08 & 1.26  \\
+      newton\_2\_6\_false--unreach--call & \sat{} & 109,084 & 504,912 &  7236 & 3623 & 44.05 & 92.81 & 11.12  \\
+      newton\_2\_8\_false--unreach--call & \sat{} & 109,055 & 504,825 &  7236 & 3556 & 129.15 & 108.25 & 5.14 \\
+      sine\_8\_true--unreach--call & \unsat{} & 26,212 & 121,849 & 2192 & 1072 & 5.30 & 13.72 & 1.36 \\
+      sine\_7\_true--unreach--call & \unsat{} & 26,220 & 121,873 & 2192 & 1110 & 6.41 & 26.42 & 1.62 \\
+      newton\_1\_1\_true--unreach--call & \unsat{} & 54,773 & 253,313 &  5044 & 2480 & 39.82 & 209.66 & 22.77  \\
+      newton\_1\_2\_true--unreach--call & \unsat{} & 54,773 & 253,313 &  5044 & 2487 & 62.23 & 123.53 & 26.80  \\
+      sine\_6\_true--unreach--call & \unsat{} & 26,241 & 121,936 & 2192 & 1139 & 71.04 & 542.11 & 1.98  \\
+      square\_7\_true--unreach--call & \unsat{} & 26,267 & 121,599 & 2192 & 1090 & 131.38 & 76.61 & 9.16 \\
+      \hline
     \end{tabular}
     \caption{Benchmark results}
-    \label{fig:results}
+    \label{table:results}
   \end{minipage}
-  \hspace*{-1.5cm}
+  %}  % scalebox
+  %\hspace*{-0.8cm}
 \end{sidewaystable}
 
-Overally, the results show that ???. In order to
+\subsection{Effectiveness of the genetic algorithm}
 
-\section{Conclusion}
+The average time taken by \textsc{MiniSat} for each member of the population roughly agrees with the average number of conflicts found by \textsc{MiniSat} on the same runs (see Figure \ref{fig:time-conflicts} for an example). This suggests that the time is not being significantly influenced by the platform on which the genetic algorithm is being run, since ???.
+
+\begin{figure}[h]
+  \begin{subfigure}[H]{0.5\textwidth}
+    \vspace{2mm}
+    \input{newton_1_8_time.tex}
+    \caption{Mean \textsc{MiniSat} time (s)}
+  \end{subfigure}
+  %
+  \begin{subfigure}[H]{0.5\textwidth}
+    \input{newton_1_8_conflicts.tex}
+    \caption{Mean conflict count}
+  \end{subfigure}
+  \caption{{\bf newton\_1\_8\_false--unreach--call}: Average time and average number of conflicts correlate.}
+  \label{fig:time-conflicts}
+\end{figure}
+
+Because runs of \sat{}-solvers on \unsat{} formulas correspond to tree-resolution refutations, improvements on \unsat{} formulas are particularly interesting. Such improvements must rely on an optimisation in the proof arising from some change performed during the pre-processing step, whereas runs on \sat{} formulas could be improved by the pre-processing merely happening to cause a built-in `magic' heuristic to work better in that particular case. Therefore it makes sense to ask how the performance of the genetic algorithm on \sat{} benchmarks differs from the performance on \unsat{} benchmarks.
+
+The genetic algorithm does find good solutions on both \sat{} and \unsat{} benchmarks. However, it tends to converge on one strong solution more often in \sat{} instances than it does in \unsat{} instances. To see this, we need to investigate how the diversity of the population varies over the iterations during the run.
+
+In order to see how the diversity of the population varied over the run of the genetic algorithm, I computed, for each iteration, the \emph{Shannon entropy} of the action of selecting a member from the population \cite{Shannon:1948}. That is, given the whole population, how many bits of information do we expect to gain by selecting one member of the population? If this is equal to the length of the vectors in the population, then each bit is 1 in as many members of the population as it is 0, so we might say that the population is very diverse. If it is 0, then all members of the population are the same. In the initial population, we expect the Shannon entropy to be almost maximised, and it should decrease over time, eventually becoming very small if the algorithm converges on one solution. We compute the Shannon entropy by summing the binary entropy function $H_b$ over each bit position in the population. Precisely, let $p_i$ be the fraction of members of the population in which the bit at location $i$ is a 1, and $N$ be the length of the population members. Then the Shannon entropy is
+\[H(\mathrm{pop}) = \sum_{i=0}^{N-1} H_b(p_i) = \sum_{i=0}^{N-1} \left( -p_i\log_2(p_i) - (1-p_i)\log_2(1-p_i) \right).\]
+
+\begin{figure}[p]
+  \input{square_1_rep_dist.tex}
+
+  \vspace{1cm}
+
+  \input{square_1_time_dist.tex}
+  \caption{{\bf square\_1\_false--unreach--call} (\sat{}): Replacements made (top), and time taken by \textsc{MiniSat} (seconds) (bottom) on each iteration.}
+  \label{fig:square_1_rep_dist}
+\end{figure}
+
+\begin{figure}[p]
+  \input{square_7_rep_dist.tex}
+
+  \vspace{1cm}
+
+  \input{square_7_time_dist.tex}
+  \caption{{\bf square\_7\_true--unreach--call} (\unsat{}): Replacements made (top), and time taken by \textsc{MiniSat} (seconds) (bottom) on each iteration.}
+  \label{fig:square_7_rep_dist}
+\end{figure}
+
+Figure \ref{fig:square_1_rep_dist} shows a typical run of the genetic algorithm on a \sat{} benchmark. The range of the number of replacements being made decreases steadily over time, closing in on one number of replacements. The population diversity --- as measured by the Shannon entropy --- also decreases over time until the algorithm successfully converges on one small group of actual solutions and the entropy drops to almost zero. Between iterations 110 and 130, the entropy does increase a little, until the algorithm discards all but a very small range of replacements, and the entropy drops quickly as the algorithm finally converges. The average time taken by \textsc{MiniSat} also decreases steadily over the course of the run, before converging on a very strong improvement compared with the time without any preprocessing. Note that the best member of the initial population was already almost as good as the overall best. The performance in the best case is a dramatic improvement over the case with no replacements, but such a dramatic improvement on a \sat{} instance can, as mentioned above, be seen as the instance being tuned to the particular search heuristics employed by the \sat{}-solver, and does not necessarily represent a theoretically-interesting omptimisation.
+
+Figure \ref{fig:square_7_rep_dist}, on the other hand, shows a typical run of the genetic algorithm on an \unsat{} benchmark. Initially, some improvement was made on the solutions found in the initial population, with the time for the overall best member being about half that of the best member in the initial population, but the Shannon entropy remains high throughout. The number of replacements being made does settle down to a narrow range, though, where about half of the possible replacements are made. It could be the case that, on these \unsat{} instances, half of the replacements is the best that can be done, but it does not matter which half. On the other hand, a genetic algorithm may not be an appropriate way to find good sets of replacements on these instances, or the algorithm may just be configured incorrectly for these instances. However, despite not converging, the algorithm did find sets of replacements that lead to greatly improved \textsc{MiniSat} performance.
+
+Overall, genetic algorithms worked well for finding good solutions in the \sat{} cases of these benchmarks, but less well in the \unsat{} cases. However, simply taking a random sample of 50 sets of replacements in the first iteration produced some sets that outperformed the case where no replacements are made, even in \unsat{} cases, and these were often improved by the genetic algorithm.
+
+[This will tie into previous chapters:] We can therefore conclude that, yes, for these particular formulas, arising from software verification, there are generally sets of replacements that improve the performance of \textsc{MiniSat}. Additionally, random sampling of sets of replacements was sufficient to find improvements, and in \sat{} cases, a genetic algorithm was usually able to converge on good solutions.
+
+\subsection{Nature of solutions found}
+
+At the beginning of the genetic algorithm, we find the set of all those subclauses in the formula appearing in 30 or more clauses. Members of the population are then subsets of that set. The best performing subsets --- across all of the instances --- included about half of the subclauses, and good subsets were found very quickly.
+
+First, it is important to note that, requiring membership of 30 or more clauses, these subclauses are already good candidates for replacement. Swapping out the subclause in at least 30 clauses and replacing it with a single variable --- and then only adding a few clauses at the end --- decreases the size of the formula overall. If the requirement for 30 or more clauses were not there, there would be many, many more possible replacements. In the worst case, a formula containing 2 clauses and $n$ literals, with each clause containing all of the literals, would have $n^2$ possible replacements. Even simple formulas obtained from software verification problems can have millions of literals, so performing all --- or even half --- of the possible replacements would be infeasible.
+
+The fact that these results show half of the subclases as the optimal number of replacements could be because of some particular feature of these formulas, which would suggest that further investigation of the encoding could be fruitful in finding an oracle for which replacements to make. On the other hand, it could be the case that half of the replacements simply represents the sweet spot between removing repeated subclauses and adding new clauses representing the extensions.
+
+Very good sets of substitutions were usually found in the initial population of the genetic algorithm. That is, a random sample of 50 sets was sufficient to find a set that outperformed the empty set. Given that good sets are so easily found (at least on this type of formula), it seems likely that progress could be relatively easily made toward an oracle that facilitates obtaining such a subset before running the \sat{}-solver.
+
+\subsection{Toward an oracle}
+
+[Have results from trying half of subclauses on one formula]
+
+[Somehow draw box and whisker diagram here of those results]
+
+\section{Conclusion and future work}
 
 \FloatBarrier
 
