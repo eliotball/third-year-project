@@ -4,11 +4,13 @@
 
 The clauses representing the pigeonhole principle for $n=3$ are:
 
-\begin{tabular}{rllll}
-   & $\{P_{1,1}, P_{1,2}\},$ & $\{P_{2,1}, P_{2,2}\},$ & $\{P_{3,1}, P_{3,2}\},$ & \\
-  & $\{\neg P_{1,1}, \neg P_{2,1}\},$ & $\{\neg P_{1,1}, \neg P_{3,1}\},$ & $\{\neg P_{2,1}, \neg P_{3,1}\},$ & \\
-  & $\{\neg P_{1,2}, \neg P_{2,2}\},$ & $\{\neg P_{1,2}, \neg P_{3,2}\},$ & $\{\neg P_{2,2}, \neg P_{3,2}\}.$ &
-\end{tabular}
+\begin{center}
+  \begin{tabular}{lll}
+    $\{P_{1,1}, P_{1,2}\},$ & $\{P_{2,1}, P_{2,2}\},$ & $\{P_{3,1}, P_{3,2}\},$ \\
+    $\{\neg P_{1,1}, \neg P_{2,1}\},$ & $\{\neg P_{1,1}, \neg P_{3,1}\},$ & $\{\neg P_{2,1}, \neg P_{3,1}\},$ \\
+    $\{\neg P_{1,2}, \neg P_{2,2}\},$ & $\{\neg P_{1,2}, \neg P_{3,2}\},$ & $\{\neg P_{2,2}, \neg P_{3,2}\}.$
+  \end{tabular}
+\end{center}
 
 We perform four extensions:
 \begin{equation*}
@@ -21,20 +23,22 @@ We perform four extensions:
 \end{equation*}
 This introduces the following additional clauses:
 
-\begin{tabular}{lll}
-  $\{\neg Q_{1,1}, P_{1,1}, P_{1,2}\}$ &
-  $\{\neg P_{1,1}, Q_{1,1}\}$ &
-  $\{\neg P_{1,2}, Q_{1,1}\}$ \\
-  $\{\neg Q_{1,1}, P_{1,1}, P_{3,1}\}$ &
-  $\{\neg P_{1,1}, Q_{1,1}\}$ &
-  $\{\neg P_{3,1}, Q_{1,1}\}$ \\
-  $\{\neg Q_{2,1}, P_{2,1}, P_{2,2}\}$ &
-  $\{\neg P_{2,1}, Q_{2,1}\}$ &
-  $\{\neg P_{2,2}, Q_{2,1}\}$ \\
-  $\{\neg Q_{2,1}, P_{2,1}, P_{3,1}\}$ &
-  $\{\neg P_{2,1}, Q_{2,1}\}$ &
-  $\{\neg P_{3,1}, Q_{2,1}\}$
-\end{tabular}
+\begin{center}
+  \begin{tabular}{lll}
+    $\{\neg Q_{1,1}, P_{1,1}, P_{1,2}\}$ &
+    $\{\neg P_{1,1}, Q_{1,1}\}$ &
+    $\{\neg P_{1,2}, Q_{1,1}\}$ \\
+    $\{\neg Q_{1,1}, P_{1,1}, P_{3,1}\}$ &
+    $\{\neg P_{1,1}, Q_{1,1}\}$ &
+    $\{\neg P_{3,1}, Q_{1,1}\}$ \\
+    $\{\neg Q_{2,1}, P_{2,1}, P_{2,2}\}$ &
+    $\{\neg P_{2,1}, Q_{2,1}\}$ &
+    $\{\neg P_{2,2}, Q_{2,1}\}$ \\
+    $\{\neg Q_{2,1}, P_{2,1}, P_{3,1}\}$ &
+    $\{\neg P_{2,1}, Q_{2,1}\}$ &
+    $\{\neg P_{3,1}, Q_{2,1}\}$
+  \end{tabular}
+\end{center}
 
 Note that two of the clauses introduced in the extension step are actually duplicates.
 
@@ -138,5 +142,110 @@ From those lemmas we finally derive the last of the clauses for $n=2$.
 }
 
 The proof of the pigeonhole principle is completed from the clauses for $n=2$ in a few steps, as shown in Section 3.
+
+\section{Programs used with CBMC to generate benchmarks}
+
+Below I include three examples of the C programs used to generate the benchmarks used in the genetic algorithm.
+
+\begin{samepage}
+First, {\bf sine\_6\_true--unreach--call}:
+\begin{lstlisting}[c]
+# 1 "sine.c"
+# 1 "<built-in>" 1
+# 1 "<built-in>" 3
+# 170 "<built-in>" 3
+# 1 "<command line>" 1
+# 1 "<built-in>" 2
+# 1 "sine.c" 2
+extern void __VERIFIER_error(void);
+extern void __VERIFIER_assume(int);
+# 27 "sine.c"
+int main()
+{
+  float IN;
+  __VERIFIER_assume(IN > -1.57079632679f && IN < 1.57079632679f);
+
+  float x = IN;
+
+  float result = x - (x*x*x)/6.0f + (x*x*x*x*x)/120.0f + (x*x*x*x*x*x*x)/5040.0f;
+
+  if(!(result <= 1.2f && result >= -1.2f))
+    __VERIFIER_error();
+
+  return 0;
+}
+\end{lstlisting}
+\end{samepage}
+
+\begin{samepage}
+Second, {\bf square\_3\_false--unreach--call}:
+\begin{lstlisting}[c]
+# 1 "square.c"
+# 1 "<built-in>" 1
+# 1 "<built-in>" 3
+# 170 "<built-in>" 3
+# 1 "<command line>" 1
+# 1 "<built-in>" 2
+# 1 "square.c" 2
+extern void __VERIFIER_error(void);
+extern void __VERIFIER_assume(int);
+# 27 "square.c"
+int main()
+{
+  float IN;
+  __VERIFIER_assume(IN >= 0.0f && IN < 1.0f);
+
+  float x = IN;
+
+  float result =
+    1.0f + 0.5f*x - 0.125f*x*x + 0.0625f*x*x*x - 0.0390625f*x*x*x*x;
+
+  if(!(result >= 0.0f && result < 1.39843f))
+    __VERIFIER_error();
+
+  return 0;
+}
+\end{lstlisting}
+\end{samepage}
+
+\begin{samepage}
+Third, {\bf newton\_2\_8\_false--unreach--call}:
+\begin{lstlisting}[c]
+# 1 "newton.c"
+# 1 "<built-in>" 1
+# 1 "<built-in>" 3
+# 170 "<built-in>" 3
+# 1 "<command line>" 1
+# 1 "<built-in>" 2
+# 1 "newton.c" 2
+extern void __VERIFIER_error(void);
+extern void __VERIFIER_assume(int);
+# 33 "newton.c"
+float f(float x)
+{
+  return x - (x*x*x)/6.0f + (x*x*x*x*x)/120.0f + (x*x*x*x*x*x*x)/5040.0f;
+}
+
+float fp(float x)
+{
+  return 1 - (x*x)/2.0f + (x*x*x*x)/24.0f + (x*x*x*x*x*x)/720.0f;
+}
+
+int main()
+{
+  float IN;
+  __VERIFIER_assume(IN > -2.0f && IN < 2.0f);
+
+  float x = IN - f(IN)/fp(IN);
+
+  x = x - f(x)/fp(x);
+
+  if(!(x < 0.1))
+    __VERIFIER_error();
+
+  return 0;
+}
+\end{lstlisting}
+\end{samepage}
 
 \end{appendices}

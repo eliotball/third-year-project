@@ -16,6 +16,7 @@
 \usepackage{proof}
 \usepackage{appendix}
 \usepackage{breqn}
+\usepackage{cite}
 
 \usepackage{afterpage}
 \newcommand\blankpage{%
@@ -80,28 +81,49 @@ There are several approaches to this, each with their own strengths and weakness
 
 For a given proposition about a system, there are multiple ways of encoding that proposition as a propositional formula, and the encoding we choose can affect the performance of a \sat{}-solver on that formula. For example, the naive method for encoding ``at-most-one'' constrains (that is, constraints of the form $x_1 + x_2+ \cdots + x_n \leq k$ where $x_i \in \{0,1\}$) produces large formulas that lead to bad performance for \sat{}-solvers. A more intelligent approach to encoding leads to much better performance (See Section \ref{sec:encoding} for more details).
 
-Given that choice of encoding can have a significant effect on both the complexity of the formula produced, and on the subsequent performance of a \sat{}-solver on that formula, it is natural to attempt to preprocess a formula before running a \sat{}-solver, an an attempt to shrink the formula or otherwise mould it more to the specific abilities of the solver.
+Given that choice of encoding can have a significant effect on both the complexity of the formula produced, and on the subsequent performance of a \sat{}-solver on that formula, it is natural to attempt to preprocess a formula before running a \sat{}-solver, an an attempt to shrink the formula or otherwise mould it more to the specific abilities of the solver. A number of attempts have been made at this, some quite successful. The best approach to preprocessing discovered so far relies on variable elimination, and both significantly decreases the size of many formulas, and also improves the performance of \sat{}-solvers on such formulas \cite{Een:2005}.
+
+One possible approach to preprocessing is the application of \emph{extended resolution}. Runs of \sat{}-solvers can be thought of as working within the \emph{resolution} proof system, which has one rule (introduced in detail in Section \ref{sec:resolution}). Extended resolution adds an additional rule, allowing the introduction of a fresh varaible $x \leftrightarrow a \vee b$, where $a$ and $b$ are literals already introduced. Extended resolution facilitates proofs of some theorems (for example, the pigeonhole principle) in a polynomial number of steps where resolution requires an exponential number of steps. Motivated by this improvement, I investigated --- through the use of genetic algorithms, a technique from artificial intelligence --- whether extended resolution can be employed in a preprocessing step in such a way as to improve \sat{}-solver performance on formulas obtained from BMC on software verification problems.
+
+This report will cover:
+\begin{itemize}
+  \item Encodings and preprocessing in the context of CDCL \sat{}-solvers.
+  \item Resolution and extended resolution, exploring in detail how extension allows the pigeonhole principle to be proved in a polynomial number of steps.
+  \item A discussion of strategies already employed for using extended resolution in \sat{}-solving, both in a preprocessing step and inside a \sat{}-solver itself.
+  \item Genetic algorithms and how they can be applied to the problem of finding good sets of extensions to perform during preprocessing.
+  \item An implementation of the technical infrastructure needed to apply genetic algorithms to this problem.
+  \item Anlysis of the results of applying genetic algorithms to the problem.
+  \item Discussion of what the results mean for the search for a good way to incorporate extended resolution into the general process for \sat{}-solving.
+\end{itemize}
 
 \section{Boolean satisfiability}
 
-[More definitions]
+A \emph{propositional formula}, or \emph{Boolean expression}, consists of one of: a Boolean variable (a variable that has the value `true' or `false'), the negation of a Boolean variable (written ``$\neg x$'' if $x$ is a Boolean variable), the conjunction of two propositional formulas (written ``$\phi \wedge \psi$'' if $\phi$ and $\psi$ are propositional formulas), and the disjunction of two propositional formulas (written ``$\phi \vee \psi$'' if $\phi$ and $\psi$ are propositional formulas). A Boolean variable or its negation is called a \emph{literal}.
 
-Modern \sat{}-solvers operate on a machine-readable representation of formulas in \emph{conjunctive normal form} (CNF). For every propositional formula, there is an equivalent CNF formula, which can be found by repeated application of DeMorgan's laws, and the laws about distributivity and double negatives \cite{Plaisted:1986}. Therefore \sat{}-solvers can effectively operate on all propositional formulas.
+Given a propositional formula, and an assignment of Boolean values to every variable found in the formula, the formula may be \emph{evaluated} by replacing each literal with the corresponding value from the assignment, and then replacing $\phi \wedge \psi$ with `true' iff $\phi$ and $\psi$ both evaluate to true, and replacing $\phi \vee \psi$ with `true' iff either $\phi$ or $\psi$ evaluates to `true'. Otherwise these operators are replaced with `false'.
 
-We define a CNF formula as a conjunction of clauses, where each clause is a disjunction of literals:
+The \emph{Boolean satisfiability problem} asks whether, given a particular propositional formula, there exists a \emph{satisfying assignment} to the variables in the formula. That is, does there exist an assignment under which the formula evaluates to `true'? If this is the case, then the formula is said to be \emph{satisfiable}, or ``\sat{}''. Otherwise, the formula is said to be \emph{unsatisfiable} (``\unsat{}''). A computer program that solves the Boolean satisfiability problem for a given formula is called a \sat{}-solver. A great deal of reasearch has been carried out into the creation of effective \sat{}-solvers.
+
+Modern \sat{}-solvers operate on a machine-readable representation of formulas in \emph{conjunctive normal form} (CNF). For every propositional formula, there is an equivalent CNF formula, which can be found by repeated application of DeMorgan's laws, and the laws about distributivity and double-negatives \cite{Plaisted:1986}. Therefore \sat{}-solvers can effectively operate on all propositional formulas.
+
+A CNF formula is defined as a conjunction of clauses, where each clause is a disjunction of literals:
 \[(l_1 \vee l_2 \vee \cdots \vee l_j) \wedge (l_{j+1} \vee l_{j+2} \vee \cdots \vee l_k) \wedge \cdots \wedge (l_{m+1} \vee l_{m+2} \vee \cdots \vee l_n)\]
-Each literal is either a variable or its negation. Note that this formula just requires one literal from each clause to be true.
+Note that this formula just requires one literal from each clause to be true.
 
 \subsection{CDCL SAT-solvers}
 
-The most efficient modern \sat{}-solvers operate according to versions of the Davis-Putnam-Logemann-Loveland (DPLL) algorithm. The basis of this algorithm is essentially a depth-first search with backtracking of the whole space of partial assignments, looking for a full assignment that satisfies the formula. In the worst case, this type of exhaustive search would take $O(2^n)$ time to complete for a formula of $n$ variables. \sat{}-solvers can achieve much better performance in practice through the use of a number of heuristics. The DPLL algorithm introduced \emph{unit propagation}, which is the immediate assignment of the required value to any variables found on their own in a clause, and \emph{pure literal elimination}, which is the immediate assignment to any variable which is only found in one polarity in the whole formula (thereby making every clause containing that variable true) \cite{Davis:1962}. The latest \sat{}-solvers, such as \textsc{MiniSat}, heavily exploit further optimisations such as faster data structures for the backtracking algorithm, better strategies for picking which variable to set at each step, and more advanced strategies for backtracking when a conflict is found \cite{Een:2003}. In particular, \emph{conflict driven clause learning} (CDCL) aims to infer a clause from a conflict which encapsulates, in some sense, the `reason' for the conflict, and causes the backtracking algorithm to fail more quickly on other paths that would lead to failure for the same reason.
+The most efficient modern \sat{}-solvers operate according to versions of the Davis-Putnam-Logemann-Loveland (DPLL) algorithm. The basis of this algorithm is essentially a depth-first search with backtracking of the whole space of partial assignments, looking for a full assignment that satisfies the formula. In the worst case, this type of exhaustive search would take $O(2^n)$ time to complete for a formula of $n$ variables.
+
+\sat{}-solvers can achieve much better performance in practice through the use of a number of heuristics. The DPLL algorithm introduced \emph{unit propagation}, which is the immediate assignment of the required value to any variables found on their own in a clause, and \emph{pure literal elimination}, which is the immediate assignment to any variable which is only found in one polarity in the whole formula (thereby making every clause containing that variable true) \cite{Davis:1962}.
+
+The latest \sat{}-solvers, such as \textsc{MiniSat}, heavily exploit further optimisations such as faster data structures for the backtracking algorithm, better strategies for picking which variable to set at each step, and more advanced strategies for backtracking when a conflict is found \cite{Een:2003}. In particular, \emph{conflict driven clause learning} (CDCL) aims to infer a clause from a conflict which encapsulates, in some sense, the `reason' for the conflict, and causes the backtracking algorithm to fail more quickly on other paths that would lead to failure for the same reason \cite{Marques:1999,Moskewicz:2001}.
 
 \subsection{Encodings and preprocessing}
 \label{sec:encoding}
 
 The choice of encoding can dramatically affect the size of a formula representing some proposition about a system. Let $x_1, x_2, \ldots, x_n \in \{0, 1\}$, and consider propositions of the form
 \[x_1 + x_2 + \cdots + x_n \leq k.\]
-A naive encoding of this constraint requires ${n \choose k+1}$ clauses. For example, let $x_1, \ldots, x_4$ be boolean variables, and require that
+A naive encoding of this constraint requires ${n \choose k+1}$ clauses. For example, let $x_1, \ldots, x_4$ be Boolean variables, and require that
 \[x_1 + x_2 + x_3 + x_4 \leq 1.\]
 For a naive encoding of this proposition, it is sufficient that each pair of variables include one that is false, since that will entail that at most one variable is true in the whole set, which satisfies the requirement above. This encoding produces
 \begin{align*}
@@ -129,13 +151,12 @@ These clauses mean that any of the variables in column $n$ being true will cause
 \[(\neg c_1 \vee \neg c_2) \wedge (\neg r_1 \vee \neg r_2).\]
 It is possible to arrange $n$ variables in a $p$ by $q$ matrix where $p = \lfloor \sqrt{n} \rfloor = O(\sqrt{n})$ and $q = \lceil n / p \rceil = O(\sqrt{n})$. Therefore, to encode the formula with this approach, we need $O(n)$ clauses specifying the location of each variable, $O(p^2)=O(n)$ clauses ensuring that only one row contains a true variable, and $O(q^2)=O(n)$ clauses ensuring that only one column contains a true variable. Therefore this encoding requires only $O(n)$ clauses in total, a huge (asymptotic\footnote{The encoding is better in absolute terms when $n>47$ \cite{Biere:2014}.}) improvement over the $O(n^2)$ clauses required by the naive encoding.
 
-[Work below here]
+Different encodings lead not just to different sizes of formula, but often radically different performances by \sat{}-sovlers \cite{Martins:2011}. This suggests the idea of pre-processing a formula before the \sat{}-solver is run. It may be possible to detect opportunities to re-structure a formula in such a way that the \sat{}-solver returns the result in less time --- essentially to change the encoding after the fact. If the time saved by the \sat{}-solver is greater than the time taken to detect and apply the optimisations, then a net gain is made.
 
-The problem of picking an encoding for a proposition suggests the idea of pre-processing a formula before the \sat{}-solver is run. It may be possible to detect opportunities to re-structure a formula in such a way that the \sat{}-solver returns the result in less time. If the time saved by the \sat{}-solver is greater than the time taken to detect and apply the optimisations, then a net gain is made.
-
-[More from Ruben still to incorporate]
+Many preprocessing techniques simply attempt to decrease the overall size of the formula, in a similar way to the way the encoding of at-most-one problems above reduced the size of the formula. Others manipulate the formula in other ways, exploiting different types of structure in the formula. As mentioned in the introduction, good results have been obtained through a preprocessor that performs variable elimination \cite{Een:2005}. An implementation of several techniques in am odarl way within in one preprocessor, ``Coprocessor 2.0'', most operating on the idea of eliminating some kind of repeated structure in the formula, also led to improvements on various instances, and the modular nature of the preprocessor means that techniques that do not work well on particular types of formula can be turned off for those formulas \cite{Manthey:2012}. A preprocessing technique based on extended resolution does not aim to reduce the size of the formula, but aims to exploit similarity found between clauses in the formula to eliminate sequences of steps taken by the \sat{}-solver that apply to different --- but similar --- clauses, but could be performed in a single sequence of steps after the extension.
 
 \section{Resolution and extended resolution}
+\label{sec:resolution}
 
 The \emph{pigeonhole principle} states that, if $n > m$, it is impossible to place $n$ items in $m$ bins without any bins containing more than one item. We can attempt to verify this by encoding the contrapositive, ``it is possible to place $n>m$ items in $m$ bins without any bin containing more than one item'' as a propositional formula, and then showing that it is \unsat. As $n$ could be arbitrarily larger than $m$, we will actually show that the propositional formula encoding the assertion ``it is possible to place $n$ items in $n-1$ bins without any bin containing more than one item'' is \unsat. If it is impossible to place $n$ items in $n-1$ bins in this way, then it is certainly impossible to place even more than $n$ items (since we have to place $n$ items in $n-1$ bins on the way), so this assertion suffices.
 
@@ -240,19 +261,21 @@ In 2015, a group of students explored the possibility of using \emph{common sube
 \[x \leftrightarrow l_1 \vee l_2 \vee \cdots \vee l_n\]
 and then, in any clause containing all of $l_1, l_2, \ldots, l_n$, delete those literals, and add $x$. Three methods are given for choosing which subexpressions to eliminate. In the first, the common subexpressions are chosen such that, after they are eliminated, the problem is of minimal size. The authors conjecture that this problem is NP-hard, and give two approximate algorithms. One is based on replacing subexpressions that are found with frequency above a given threshold, and the other is based on the LZW string-compression algorithm. All of these strategies are implemented as a pre-processing step before running the \sat{}-solver. This approach is attractive because of its simplicity, and the authors find an improvement in performance in about half the cases they try.
 
-[Need to motivate this much more --- see Ruben's notes]
-
-For this project, I hypothesise that, for some propositional formulas arising in real-world model checking, there are sets of substitutions of repeated subclauses with size 2 or 3 (that is, there are pairs or triplets of literals which appear in multiple clauses) which can be replaced by extension with a single variable, leading to an improvement in the performance of the \textsc{MiniSat} solver on those instances. I investigate this by attempting to use a genetic algorithm to find such sets of substitutions.
+Formulas obtained from BMC in software verification may have many sets of literals that are found in many clauses. Extended resolution could be used to replace those sets of literals with a single variable, which may improve the performance of a \sat{}-solver on the formula, as in the findings of Yan et al. However, it is difficult to know which sets of replacements to perform. Replacing every repeated subclause will not necessarily improve performance, but there may be sets of replacements that do. This raises the question of whether there is usually such a set of replacements on these formulas. For this project, I attempted to answer the question:
+\begin{quote}
+  Are there sets of subclause replacements that improve the performance of the \textsc{MiniSat} \sat{}-solver on certain CNF formulas obtained from BMC in software verification problems, and if so, can these be found by applying a genetic algorithm?
+\end{quote}
 
 \section{Genetic algorithms}
+\label{sec:genetic}
 
-A \emph{genetic algorithm} is a search algorithm that mimics natural selection. In the most basic form of the algorithm, sufficiently long binary strings are mapped onto the search space, and then an initial population of random strings is created. Each of the strings is scored according to the fitness of the corresponding item in the search space, and then a sample of the most highly-scored strings is taken. From this sample, a new population the same size as the original is created, by taking random pairs of strings from the sample and combining them in a specific way (see below). This process of scoring, sampling, and combining is repeated a nubmer of times, in the hope of finding a member of the search space with high fitness.
+A \emph{genetic algorithm} is a search algorithm that mimics natural selection  \cite{Goldberg:1989}. In the most basic form of the algorithm, sufficiently long binary strings are used to represent points in the search space, and then an initial population of random strings is created. Each of the strings is scored according to the fitness of the corresponding item in the search space, and then a sample of the most highly-scored strings is taken. From this sample, a new population the same size as the original is created, by taking random pairs of strings from the sample and combining them in a specific way (see below). This process of scoring, sampling, and combining is repeated a number of times, in the hope of finding a member of the search space with high fitness.
 
-In the step where a new population is being generated from the high-fitness sample, the new population members are usually generated according to the following algorithm (See Figure \ref{fig:genetic-algo}):
+In the step where a new population is being generated from the high-fitness sample, the new population members are usually generated according to the following algorithm:
 
 \begin{enumerate}
   \item {\bf Selection:} Randomly choose two \emph{parents} $a$ and $b$ from the high-fitness sample.
-  \item {\bf Crossover:} Where $n$ is the length of the strings, pick some integer $k$ such that $0 \leq k \leq n$, and then combine the two parent strings to create the new member $m = a[0 \ldots k) \parallel b[k \ldots n)$.
+  \item {\bf Crossover:} Where $n$ is the length of the strings, pick some integer $k$ such that $0 \leq k \leq n$, and then combine the two parent strings to create the new member $m = a[0 \ldots k) \parallel b[k \ldots n)$ (See Figure \ref{fig:genetic-algo}).
   \item {\bf Mutation:} Randomly flip some of the bits in $m$ and then add it to the new population.
 \end{enumerate}
 
@@ -266,13 +289,15 @@ The aim of the crossover part of the algorithm is to allow good features that ar
 
 The aim of the mutation part of the algorithm is to allow the exploration of ``nearby'' members of the population. If the search space is sufficiently smooth with respect to the fitness function, then this leads to a hillclimbing effect. This also means that care must be taken with the encoding of solutions as bit vectors, and when setting the rate of mutation, since certain encodings or rates of mutation may not lead to a sufficiently similar ``neighbouring'' solutions for the hillclimbing effect to work correctly \cite{Taher:2013}. In general, the probability of any bit in a member of the population being flipped should not be above 0.05, and with a mutation rate below that threshold, the population size should be between approximately 30 and 100 \cite{Grefenstette:1986}.
 
-There are several different strategies for the selection phase, where the high-fitness sample is chosen \cite{Thierens:1994}. The simplest is \emph{truncation selection}, which is the outcome of sorting the population by fitness, and taking the best $k$ members, for some $k$. An alternative approach is \emph{fitness proportionate selection}, also called \emph{roulette-wheel selection}, where we calculate the fitness of each individual, and then assign each individual some part of the $[0,1]$ interval, so that the size of each individual's section of the interval is proportional to its fitness. Then a random point in the $[0,1]$ interval is picked, and the corresponding member of the population is added to the high-fitness sample. This is repeated $k$ times, where $k$ is the desired size of the high-fitness sample. Both of these strategies generally perform well, but fitness proportionate selection can run in to problems at later stages of execution when the fitness values of the population are similar, as it might not provide enough selection pressure to improve the population \cite{Whitley:1989}. As the fitness values of members of the population in this project are indeed likely to be similar, I chose to use truncation selection.
+There are several different strategies for the selection phase, where the high-fitness sample is chosen \cite{Thierens:1994}. The simplest is \emph{truncation selection}, which is the outcome of sorting the population by fitness, and taking the best $m$ members, for some $m$. An alternative approach is \emph{fitness proportionate selection}, also called \emph{roulette-wheel selection}, where we calculate the fitness of each individual, and then assign each individual some part of the $[0,1]$ interval, so that the size of each individual's section of the interval is proportional to its fitness. Then a random point in the $[0,1]$ interval is picked, and the corresponding member of the population is added to the high-fitness sample. This is repeated $t$ times, where $t$ is the desired size of the high-fitness sample. Both of these strategies generally perform well, but fitness proportionate selection can run in to problems at later stages of execution when the fitness values of the population are similar, as it might not provide enough selection pressure to improve the population \cite{Whitley:1989}. As the fitness values of members of the population in this project are indeed likely to be similar, I chose to use truncation selection. Often, the strong members from the previous iteration are retained in the population for the new iteration without going through crossover and mutution (which are then used to generate the remainder of the new population). This approach is called \emph{elitism}, and has the advantage of ensuring that strong solutions are not lost in the mutation step.
 
-% Elitism
+In this project, based on my findings above, I used a population size of 50 with elitism, and a mutation probability of 0.01. Each member of the population describes which of the possible subclause replacements should be made for a formula. The fitness of a member of the population is the time taken by \textsc{MiniSat} to solve the formula after the replacements have been made (so smaller numbers indicate a higher fitness). The genetic algorithm will then attempt to find the set of subclause replacements that leads to the best overall performance.
 
 \section{Technical implementation}
 
-In the technical implementation of this project, I obtained a number of benchmarks that come from real-world bounded model checking. The benchmarks come from implementations of the Newton-Raphson method, polynomial approximations of sine, and squaring of floating-point numbers. To execute the genetic algorithm on a given benchmark, we follow this algorithm:
+In the technical implementation of this project, I obtained a number of benchmarks that come from real-world bounded model checking. The benchmarks come from implementations of the Newton-Raphson method, polynomial approximations of sine, and squaring of floating-point numbers. CBMC was used to generate the formulas from C programs (See Appendix \ref{app:cbmc} for examples). The programs do not contain any loops, which means that a cut-off point for unrolling the loops does not need to be chosen.
+
+To execute the genetic algorithm on a given benchmark, we follow this algorithm:
 
 \begin{samepage}
   \begin{enumerate}
@@ -282,7 +307,7 @@ In the technical implementation of this project, I obtained a number of benchmar
     \item Run \textsc{MiniSat} on each member of the population, recording the time taken.
     \item If the average fitness for the whole population has converged, terminate.
     \item Rank members of the population by their \textsc{MiniSat} time, and take the best half.
-    \item Generate a new population of 50 comprising the best half of the previous population, along with another half created from that half by crossover and mutation.
+    \item Generate a new population of 50 comprising the best half of the previous population, along with 25 created from that half by crossover and mutation.
     \item Go to Step 3.
   \end{enumerate}
 \end{samepage}
@@ -295,7 +320,7 @@ Finding all of the repeated subclauses of size 2 or 3 could be done in many ways
   \label{fig:formula-class}
 \end{figure}
 
-I represent a propositional formula by an instance of the \code{Formula} class (See Figure \ref{fig:formula-class}). The constructor takes as an argument a CNF formula in the standard DIMACS format (See Figure \ref{fig:dimacs}), and stores it internally as a list of lists of integers. Each inner list represents a clause, and each integer represents a literal. The integer $x$ represents the literal $l_x$ and the integer $-x$ represents the literal $\neg l_x$.
+I represent a propositional formula by an instance of the \code{Formula} class (See Figure \ref{fig:formula-class}). The constructor takes as an argument a CNF formula in the standard DIMACS format, and stores it internally as a list of lists of integers. Each inner list represents a clause, and each integer represents a literal. The integer $x$ represents the literal $l_x$ and the integer $-x$ represents the literal $\neg l_x$.
 
 \iffalse  % hide for now
 \begin{figure}[h]
@@ -322,7 +347,7 @@ It also finds every clause containing all of $l_1, l_2, \ldots, l_n$, and replac
   \label{fig:population-class}
 \end{figure}
 
-For the genetic algorithm, the population is handled by the \code{Population} class (see Figure \ref{fig:population-class}). The initial population is generated in the \code{__init__} method (the constructor) by creating 48 (or 2 less than \code{population_size} if that is not 50) random bit vectors of the appropriate length. We also add the vectors $[111\cdots1]$ and $[000\cdots0]$, in case either of these extremes turns out to perform well. The bit vectors are represented as lists of boolean values. This is not very efficient in memory, but it doesn't matter because the population is quite small.
+For the genetic algorithm, the population is handled by the \code{Population} class (see Figure \ref{fig:population-class}). The initial population is generated in the \code{__init__} method (the constructor) by creating 48 (or 2 less than \code{population_size} if that is not 50) random bit vectors of the appropriate length. We also add the vectors $[111\cdots1]$ and $[000\cdots0]$, in case either of these extremes turns out to perform well. The bit vectors are represented as lists of Boolean values. This is not very efficient in memory, but it doesn't matter because the population is quite small.
 
 The \code{Population} class also handles the logic of each iteration of the genetic algorithm. The \code{get_best_few} method takes as an argument a function \code{scoring_function} and applies this funciton to each member of the population. The \code{scoring_function} returns two values: the fitness of the population member (where a smaller value implies a fitter member), followed by an object possibly containing other data gathered during the scoring (which may be of interest when it comes to analysis of the run).
 
