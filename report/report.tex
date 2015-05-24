@@ -15,6 +15,7 @@
 \usepackage{rotating}
 \usepackage{proof}
 \usepackage{appendix}
+\usepackage{breqn}
 
 \usepackage{afterpage}
 \newcommand\blankpage{%
@@ -50,21 +51,25 @@
 
 \blankpage
 
+\thispagestyle{empty}
+
 \section*{Summary}
 
-
+Prior research in the field of logic has shown that the \emph{extended resolution} proof system can facilitate polynomial-length proofs of propositions that require exponential-length proofs in the \emph{resolution} proof system. Based on this, some research has been carried out within the field of software and hardware verification into using extended resolution as a part the procedure followed by a \sat{}-solver, with varying success. I explore, through the use of \emph{genetic algorithms}, whether extension can be used effectively as a preprocessing step that removes redundancy prior to running a \sat{}-solver. Because of their important practical applications, I focus on formulas obtained from software verification problems.
 
 \tableofcontents
 
 \newpage
+\blankpage
 
+\setcounter{page}{1}
 \section{Introduction}
 
 In a world increasingly driven by machines and other automated systems, bugs and mistakes made by the creators of these machines are expensive, and sometimes dangerous. In 1994, Intel was pressured into replacing a huge batch of its Pentium processors when it was discovered that the floating point unit within them was faulty, often returning inaccurate results. This recall cost Intel \$475 million \cite{Nicely:2008}. This type of mistake is often a huge problem for the parties involved, and it is easy to imagine truly disastrous outcomes if a mistake is made in the software for a missile guidance system, or the control systems for a car.
 
 This raises the question of how to be sure that a system is correct --- answering the question, ``have we implemented what we intended to implement?'' Testing a system, by trying out all of the different types of situations we think it can reach, can only go so far. What if we fail to foresee some of the situations? Ideally, we would be able to prove beyond doubt that the system does not fail.
 
-There are several approaches to this, each with their own strengths and weaknesses \cite{Dsilva:2008}. Bounded Model Checking (BMC) is one approach, where a system is encoded as a propositional formula that can be thought of as expressing the claim ``There is a counterexample, proving this system flawed, of length at most $k$'', for some given $k$ \cite{Biere:1999}. This formula is then checked to see whether it is satisfiable (``\sat'') using a \sat{}-solver. If the formula is \sat, then there is a counterexample of the desired length, which may be obtained by inspecting the values of the variables in a satisfying assignment. If the formula is not satisfiable (it is \emph{unsatisfiable} or ``\unsat''), then we can be sure that there is not a counterexample of the desired length. The smallest possible $k$ guaranteeing that the system is completely correct (that there is no counterexample of any length) is called the \emph{completeness threshold} \cite{Kroening:2003}. In general, finding the completeness threshold is as hard as actually verifying the system, but many errors are shallow, and may be found with a low value of $k$. Therefore, using even a fairly small value can increase one's confidence in a system, even if one can still not be \emph{completely sure} that the system is correct. Since this approach involes generating a formula for a \sat{}-solver, the efficiency of any BMC tool is tied to the performance of current \sat{}-solvers. \sat{}-solvers have become increasingly efficient over recent years (see Figure \ref{fig:sat-solver-perf}), and BMC has therefore become more and more effective for model verification.
+There are several approaches to this, each with their own strengths and weaknesses \cite{Dsilva:2008}. Bounded Model Checking (BMC) is one approach, where a system is encoded as a propositional formula that can be thought of as expressing the claim ``There is a counterexample, proving this system flawed, of length at most $k$'', for some given $k$ \cite{Biere:1999}. This formula is then checked to see whether it is satisfiable using a \sat{}-solver. If the formula is satisfiable, then there is a counterexample of the desired length, which may be obtained by inspecting the values of the variables in a satisfying assignment. If the formula is not satisfiable, then we can be sure that there is not a counterexample of the desired length. The smallest possible $k$ guaranteeing that the system is completely correct (that there is no counterexample of any length) is called the \emph{completeness threshold} \cite{Kroening:2003}. In general, finding the completeness threshold is as hard as actually verifying the system, but many errors are shallow, and may be found with a low value of $k$. Therefore, using even a fairly small value can increase one's confidence in a system, even if one can still not be \emph{completely sure} that the system is correct. Since this approach involes generating a formula for a \sat{}-solver, the efficiency of any BMC tool is tied to the performance of current \sat{}-solvers. \sat{}-solvers have become increasingly efficient over recent years (see Figure \ref{fig:sat-solver-perf}), and BMC has therefore become more and more effective for model verification.
 
 \begin{figure}[h]
   \includegraphics[width=\textwidth]{sat-perf}
@@ -73,9 +78,13 @@ There are several approaches to this, each with their own strengths and weakness
   \label{fig:sat-solver-perf}
 \end{figure}
 
-[More motivation work here --- see Ruben's notes]
+For a given proposition about a system, there are multiple ways of encoding that proposition as a propositional formula, and the encoding we choose can affect the performance of a \sat{}-solver on that formula. For example, the naive method for encoding ``at-most-one'' constrains (that is, constraints of the form $x_1 + x_2+ \cdots + x_n \leq k$ where $x_i \in \{0,1\}$) produces large formulas that lead to bad performance for \sat{}-solvers. A more intelligent approach to encoding leads to much better performance (See Section \ref{sec:encoding} for more details).
+
+Given that choice of encoding can have a significant effect on both the complexity of the formula produced, and on the subsequent performance of a \sat{}-solver on that formula, it is natural to attempt to preprocess a formula before running a \sat{}-solver, an an attempt to shrink the formula or otherwise mould it more to the specific abilities of the solver.
 
 \section{Boolean satisfiability}
+
+[More definitions]
 
 Modern \sat{}-solvers operate on a machine-readable representation of formulas in \emph{conjunctive normal form} (CNF). For every propositional formula, there is an equivalent CNF formula, which can be found by repeated application of DeMorgan's laws, and the laws about distributivity and double negatives \cite{Plaisted:1986}. Therefore \sat{}-solvers can effectively operate on all propositional formulas.
 
@@ -88,16 +97,45 @@ Each literal is either a variable or its negation. Note that this formula just r
 The most efficient modern \sat{}-solvers operate according to versions of the Davis-Putnam-Logemann-Loveland (DPLL) algorithm. The basis of this algorithm is essentially a depth-first search with backtracking of the whole space of partial assignments, looking for a full assignment that satisfies the formula. In the worst case, this type of exhaustive search would take $O(2^n)$ time to complete for a formula of $n$ variables. \sat{}-solvers can achieve much better performance in practice through the use of a number of heuristics. The DPLL algorithm introduced \emph{unit propagation}, which is the immediate assignment of the required value to any variables found on their own in a clause, and \emph{pure literal elimination}, which is the immediate assignment to any variable which is only found in one polarity in the whole formula (thereby making every clause containing that variable true) \cite{Davis:1962}. The latest \sat{}-solvers, such as \textsc{MiniSat}, heavily exploit further optimisations such as faster data structures for the backtracking algorithm, better strategies for picking which variable to set at each step, and more advanced strategies for backtracking when a conflict is found \cite{Een:2003}. In particular, \emph{conflict driven clause learning} (CDCL) aims to infer a clause from a conflict which encapsulates, in some sense, the `reason' for the conflict, and causes the backtracking algorithm to fail more quickly on other paths that would lead to failure for the same reason.
 
 \subsection{Encodings and preprocessing}
+\label{sec:encoding}
 
-For a given proposition about a system, there are many possible ways to encode that proposition in the CNF format accepted by the \sat{}-solver. For example, the ordering of the literals within each of the clauses, and the ordering of the clauses themselves may be changed. Because the \sat{}-solver has to make deterministic choices that are not prescribed in the DPLL algorithm, it may behave differently for different orderings. Therefore, even though $(l_0 \vee l_1) \wedge l_2 = (l_1 \vee l_0) \wedge l_2 = l_2 \wedge (l_0 \vee l_1)$, the \sat{}-solver may arrive at the solution to each of these formulas via a different sequence of steps.
+The choice of encoding can dramatically affect the size of a formula representing some proposition about a system. Let $x_1, x_2, \ldots, x_n \in \{0, 1\}$, and consider propositions of the form
+\[x_1 + x_2 + \cdots + x_n \leq k.\]
+A naive encoding of this constraint requires ${n \choose k+1}$ clauses. For example, let $x_1, \ldots, x_4$ be boolean variables, and require that
+\[x_1 + x_2 + x_3 + x_4 \leq 1.\]
+For a naive encoding of this proposition, it is sufficient that each pair of variables include one that is false, since that will entail that at most one variable is true in the whole set, which satisfies the requirement above. This encoding produces
+\begin{align*}
+  (\neg x_1 \vee \neg x_2) & \wedge (\neg x_1 \vee \neg x_3) \wedge (\neg x_1 \vee \neg x_4) \\
+  & \wedge (\neg x_2 \vee \neg x_3) \wedge (\neg x_2 \vee \neg x_4) \wedge (\neg x_3 \vee \neg x_4).
+\end{align*}
+Even in this case, where $k=1$, $O(n^2)$ clauses are required. There are, however, a number of approaches to encoding these constraints that lead to much smaller formulas \cite{Biere:2014}. For example, the formula above can be encoded by first arranging the four variables in a matrix:
 
-Further, they may be multple ways to structure the representation of a system as a propositional formula. Suppose, for example, that we are writing a CNF formula that is the result of applying an associative binary relation R to three objects $a$, $b$ and $c$. We could choose either $(a\mbox{ R }b)\mbox{ R }c$ or $a\mbox{ R }(b\mbox{ R }c)$. The \sat{}-solver may perform differently on each of these encodings. In real-world software verification, where we perform complex operations like multiplying and adding large binary numbers, there are many, many possible encodings, some of which perform drastically better than others. For example, a binary multiplier encoded as a table recording the result for every possible pair of operands performs much worse than one that borrows ideas from optimised hardware multipliers. [Is this true?]
+\begin{center}
+  \begin{tabular}{c|cc}
+      & 1 & 2 \\ \hline
+    1 & $x_1$ & $x_2$ \\
+    2 & $x_3$ & $x_4$
+  \end{tabular}
+\end{center}
+
+Then we introduce a variable $c_n$ for each column $n$, and a variable $r_m$ for each row $m$. We then add two clauses for each variable $x_i$. If $x_i$ is in column $n$ and row $m$, we add
+\begin{align*}
+  x_i \to c_n &= \neg x_i \vee c_n, \\
+  x_i \to r_m &= \neg x_i \vee r_m.
+\end{align*}
+In the above case, we add $(\neg x_3 \vee c_1) \wedge (\neg x_3 \vee r_2)$ for the $x_3$ variable, for example.
+
+These clauses mean that any of the variables in column $n$ being true will cause $c_n$ to be true, and any of the variables in row $m$ being true will cause $r_m$ to be true. Then, we simply require that at most one column, and at most one row contains a true variable, so
+\[(\neg c_1 \vee \neg c_2) \wedge (\neg r_1 \vee \neg r_2).\]
+It is possible to arrange $n$ variables in a $p$ by $q$ matrix where $p = \lfloor \sqrt{n} \rfloor = O(\sqrt{n})$ and $q = \lceil n / p \rceil = O(\sqrt{n})$. Therefore, to encode the formula with this approach, we need $O(n)$ clauses specifying the location of each variable, $O(p^2)=O(n)$ clauses ensuring that only one row contains a true variable, and $O(q^2)=O(n)$ clauses ensuring that only one column contains a true variable. Therefore this encoding requires only $O(n)$ clauses in total, a huge (asymptotic\footnote{The encoding is better in absolute terms when $n>47$ \cite{Biere:2014}.}) improvement over the $O(n^2)$ clauses required by the naive encoding.
+
+[Work below here]
 
 The problem of picking an encoding for a proposition suggests the idea of pre-processing a formula before the \sat{}-solver is run. It may be possible to detect opportunities to re-structure a formula in such a way that the \sat{}-solver returns the result in less time. If the time saved by the \sat{}-solver is greater than the time taken to detect and apply the optimisations, then a net gain is made.
 
 [More from Ruben still to incorporate]
 
-\section{Extended resolution}
+\section{Resolution and extended resolution}
 
 The \emph{pigeonhole principle} states that, if $n > m$, it is impossible to place $n$ items in $m$ bins without any bins containing more than one item. We can attempt to verify this by encoding the contrapositive, ``it is possible to place $n>m$ items in $m$ bins without any bin containing more than one item'' as a propositional formula, and then showing that it is \unsat. As $n$ could be arbitrarily larger than $m$, we will actually show that the propositional formula encoding the assertion ``it is possible to place $n$ items in $n-1$ bins without any bin containing more than one item'' is \unsat. If it is impossible to place $n$ items in $n-1$ bins in this way, then it is certainly impossible to place even more than $n$ items (since we have to place $n$ items in $n-1$ bins on the way), so this assertion suffices.
 
@@ -412,10 +450,12 @@ Very good sets of substitutions were usually found in the initial population of 
 \section{Conclusion and future work}
 
 \FloatBarrier
+\newpage
 
 \bibliography{report}
 \bibliographystyle{apalike}
 
+\newpage
 \input{appendices.tex}
 
 \end{document}
